@@ -95,3 +95,92 @@ Here are the steps you can take to leverage Deepseek's Flash-MLA:
 * **Learning Curve:**  There might be a learning curve associated with integrating a new inference library.  Allocate time to understand the documentation and examples.
 
 **In summary, Deepseek's Flash MLA project has the potential to be a very valuable tool for ML engineers working on AWS and Databricks, particularly those dealing with large language models and performance-critical applications. By taking the steps outlined above, you can explore, integrate, and benefit from this exciting open-source project.**
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Let's break down how to effectively use Flash MLA by Deepseek with MLflow on Databricks and host the model for inference on AWS SageMaker. This involves several key steps:
+
+**1. Setting up Databricks with MLflow:**
+
+* **Databricks Runtime:**
+    * Ensure you're using a Databricks Runtime that supports the necessary libraries (e.g., Python 3.8+).
+    * Consider using a GPU-enabled cluster if Flash MLA benefits significantly from GPU acceleration.
+* **MLflow Tracking:**
+    * Databricks has built-in MLflow integration. You can use `mlflow.autolog()` or manual logging to track your Flash MLA model training.
+    * Use `mlflow.log_params()`, `mlflow.log_metrics()`, and `mlflow.log_artifacts()` to record all relevant information about your training runs.
+* **Install Deepseek Flash MLA:**
+    * Install the Deepseek Flash MLA library and its dependencies within your Databricks environment. Use `%pip install deepseek-flash-attention` and any other required package.
+    * It is very important to make sure that the cuda and pytorch versions are compatible with the flash attention version.
+* **Model Training and Logging:**
+    * Write your training code using Flash MLA.
+    * Use `mlflow.pytorch.log_model()` or `mlflow.pyfunc.log_model()` to log your trained model.
+    * When using `mlflow.pyfunc.log_model()` you will have to create a custom python class that will load your model, and implement the predict function. This is very usefull for complex models.
+
+**2. Model Packaging and MLflow Model Registry:**
+
+* **MLflow Model Registry:**
+    * Register your trained Flash MLA model in the MLflow Model Registry. This allows you to manage model versions and stages (e.g., Staging, Production).
+    * Use `mlflow.register_model()` to register your model.
+* **Model Serialization:**
+    * Ensure your model is properly serialized for deployment. MLflow handles serialization for many common frameworks.
+    * If using a custom pyfunc model, make sure that all of the dependencies are saved with the model.
+
+**3. Deploying to AWS SageMaker:**
+
+* **Exporting the MLflow Model:**
+    * Download the MLflow model from the Model Registry. You can do this through the Databricks UI or using the MLflow Python API.
+    * When downloading the model, download the entire folder that contains the model.
+* **SageMaker Model Creation:**
+    * Create a SageMaker model using the downloaded MLflow model artifacts.
+    * You'll need to create a Docker image that contains the necessary dependencies (Deepseek Flash MLA, PyTorch, etc.) and the MLflow serving environment.
+    * **Docker Image:**
+        * Create a Dockerfile that:
+            * Starts from a SageMaker-compatible base image (e.g., `pytorch/pytorch:latest-cuda11.6-cudnn8-runtime`).
+            * Installs the required Python packages from a `requirements.txt` file that you create from the MLflow model's dependencies.
+            * Copies your MLflow model artifacts into the image.
+            * Sets the entrypoint to the MLflow serving command (`mlflow models serve`).
+        * Build and push the Docker image to Amazon ECR.
+    * **SageMaker Model Creation:**
+        * Use the SageMaker Python SDK or the AWS console to create a SageMaker model using your ECR image.
+* **SageMaker Endpoint Creation:**
+    * Create a SageMaker endpoint configuration and endpoint to host your model.
+    * You can specify the instance type, number of instances, and other settings.
+* **Inference:**
+    * Use the SageMaker Python SDK or the AWS CLI to send inference requests to your endpoint.
+
+**Key Considerations:**
+
+* **Dependency Management:**
+    * Carefully manage dependencies. Create a `requirements.txt` file that accurately reflects the dependencies of your Flash MLA model.
+    * Ensure that the dependencies in your Docker image match those used during training.
+* **GPU Acceleration:**
+    * If you're using GPU acceleration, make sure your SageMaker endpoint uses GPU instances.
+    * Verify that the CUDA and cuDNN versions in your Docker image are compatible with the SageMaker GPU instances.
+* **Model Size and Performance:**
+    * Consider the size of your Flash MLA model and the performance requirements of your inference workload.
+    * Choose appropriate SageMaker instance types to meet your needs.
+* **Monitoring and Logging:**
+    * Set up monitoring and logging for your SageMaker endpoint to track performance and identify issues.
+    * Cloudwatch is very useful for this.
+* **Security:**
+    * Implement appropriate security measures, such as IAM roles and encryption, to protect your model and data.
+* **MLflow Sagemaker Deployments:**
+    * MLflow has some built in sagemaker deployment functionalities, but these can be limited. For complex models, the docker method is often the best.
+
+**Example Dockerfile Snippet:**
+
+```dockerfile
+FROM pytorch/pytorch:latest-cuda11.6-cudnn8-runtime
+
+WORKDIR /opt/ml
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY model /opt/ml/model
+
+CMD ["mlflow", "models", "serve", "-m", "/opt/ml/model", "--host", "0.0.0.0", "--port", "8080"]
+```
+
+Remember to replace `requirements.txt` and `model` with the actual paths to your files.
+By following these steps, you can effectively use Flash MLA with MLflow on Databricks and deploy your model to AWS SageMaker for efficient and scalable inference.

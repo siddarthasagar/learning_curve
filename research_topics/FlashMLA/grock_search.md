@@ -85,3 +85,73 @@ In conclusion, Flash MLA is a powerful tool for ML engineers with MLA-compatible
 - [Hygon DCU FlashMLA long title](https://developer.sourcefind.cn/codes/OpenDAS/MLAttention)
 - [Intellifusion NNP FlashMLA long title](https://gitee.com/Intellifusion_2025/tyllm/blob/master/python/tylang/flash_mla.py)
 - [Iluvatar Corex FlashMLA long title](https://github.com/Deep-Spark/FlashMLA/tree/iluvatar_flashmla)
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### Key Points
+- It seems likely that you can use Flash MLA by Deepseek with MLflow on Databricks and host it on AWS SageMaker, but it requires specific setups.
+- Research suggests Databricks supports Hopper GPUs in 2025, needed for Flash MLA, with CUDA 12.3+ and PyTorch 2.0+.
+- The evidence leans toward using MLflow to log and deploy the model to SageMaker, selecting ml.p5 instances for Hopper GPU support.
+
+### Setup on Databricks
+To use Flash MLA, ensure your Databricks cluster has a Hopper GPU instance, like those supporting H100 GPUs, and the latest runtime (e.g., 16.0 ML) with CUDA 12.6. Install Flash MLA via `python setup.py install` and develop your model using it.
+
+### Model Logging and Deployment
+Log your model with MLflow on Databricks, including custom code for Flash MLA. Deploy to SageMaker using MLflow, choosing ml.p5 instances for inference, and ensure the container has Flash MLA installed.
+
+### Unexpected Detail
+You might need to request a quota increase for ml.p5 instances on SageMaker, as they are high-performance and may not be enabled by default.
+
+---
+
+### Survey Note: Detailed Guide on Using Flash MLA with MLflow on Databricks and Hosting on AWS SageMaker
+
+This comprehensive guide outlines the process of effectively using Flash MLA by Deepseek with MLflow on Databricks and hosting the model for inference on AWS SageMaker, based on the latest information available as of February 27, 2025. Flash MLA is a decoding kernel optimized for Hopper GPUs, specifically designed for Multi-head Latent Attention (MLA) in AI models, and requires careful configuration across both platforms.
+
+#### Background on Flash MLA
+Flash MLA, developed by Deepseek, is an efficient decoding kernel for MLA, optimized for Hopper GPUs such as the NVIDIA H100. It is open-sourced and available on GitHub ([FlashMLA GitHub Repository](https://github.com/deepseek-ai/FlashMLA)). It requires CUDA 12.3 or above (recommended 12.8) and PyTorch 2.0 or above, making it suitable for high-performance inference tasks, especially for variable-length sequences.
+
+#### Databricks Setup for Flash MLA
+To use Flash MLA on Databricks, you need to ensure your cluster is configured with Hopper GPU support. As of 2025, Databricks supports GPU-enabled compute across AWS, Azure, and Google Cloud, with the latest runtime versions potentially including Hopper GPUs. For instance, Databricks Runtime 16.0 ML includes CUDA 12.6, which meets Flash MLA's requirements ([Databricks Runtime 16.0 for Machine Learning](https://docs.databricks.com/en/release-notes/runtime/16.0ml.html)).
+
+- **Cluster Configuration:** Select a GPU-enabled runtime, such as Runtime 16.0 ML, and choose an instance type that supports Hopper GPUs. While specific documentation from 2025 does not explicitly list Hopper GPUs, given the timeline, it's reasonable to assume support for H100 GPUs in the latest offerings, similar to SageMaker's ml.p5 instances.
+- **Installation:** Install Flash MLA using the command `python setup.py install` as per its documentation. Ensure PyTorch 2.0+ is available, which is typically pre-installed in Databricks Runtime ML.
+- **Development:** Develop your model, leveraging Flash MLA for decoding, ensuring compatibility with Databricks' environment. This involves writing code that imports and uses Flash MLA for MLA-based models, such as transformer architectures.
+
+#### Using MLflow on Databricks
+MLflow is integrated with Databricks for managing the machine learning lifecycle, including experiment tracking, model packaging, and deployment. To use MLflow with your Flash MLA model:
+
+- **Logging the Model:** Use MLflow to log your experiments, capturing parameters, metrics, and the model artifact. Include any custom code that uses Flash MLA, ensuring the model is saved in a format compatible with MLflow, such as PyTorch flavor. This might involve defining a custom model class that utilizes Flash MLA for decoding.
+- **Dependencies:** Ensure all dependencies, including Flash MLA, are logged with the model to facilitate deployment. This can be done by specifying the environment in MLflow, including the necessary Python packages.
+
+#### Hosting on AWS SageMaker
+To host the model for inference on AWS SageMaker, you need to deploy the MLflow-logged model, ensuring compatibility with SageMaker's infrastructure, particularly for Hopper GPU support.
+
+- **Instance Selection:** SageMaker offers ml.p5 instances powered by NVIDIA H100 GPUs, which are part of the Hopper architecture, making them suitable for Flash MLA ([Announcing support for ml.p5 instances for Amazon SageMaker Model Training](https://aws.amazon.com/about-aws/whats-new/2023/08/support-ml-p5-instances-amazon-sagemaker-model-training/)). These instances are available in regions like US East (N. Virginia) and US West (Oregon), and you may need to request a quota increase via AWS Service Quotas due to their high-performance nature.
+- **Deployment with MLflow:** Use MLflow's deployment capabilities to deploy the model to SageMaker. The command `mlflow sagemaker deploy` can be used, as outlined in the MLflow documentation ([Deploy MLflow Model to Amazon SageMaker](https://mlflow.org/docs/latest/deployment/deploy-model-to-sagemaker.html)). This automates building a Docker image from the MLflow model, which should include Flash MLA and its dependencies.
+- **Custom Inference Script:** Since Flash MLA is a specific kernel, you may need to provide a custom inference script for SageMaker. This script should load the model and use Flash MLA for decoding, ensuring it runs on the Hopper GPU. This might involve installing Flash MLA in the SageMaker container and configuring the environment to match Databricks' setup.
+
+#### Considerations and Challenges
+- **CUDA Version Compatibility:** Databricks' default CUDA version in earlier runtimes was 11.0, but Runtime 16.0 ML supports CUDA 12.6, aligning with Flash MLA's requirements. Ensure your cluster uses this or a later version.
+- **Hopper GPU Availability:** While SageMaker explicitly supports ml.p5 instances with H100 GPUs, Databricks' support for Hopper GPUs in 2025 is inferred from the timeline and latest runtime updates. Verify with Databricks' latest documentation or support for exact instance types.
+- **Cost and Quota:** Both ml.p5 instances on SageMaker and Hopper GPU instances on Databricks can be costly, and you may need to request quota increases, especially for ml.p5, which can cost between $113 and $118 per hour ([Selecting an AWS EC2 instance for machine learning workloads](https://www.techtarget.com/searchcloudcomputing/tip/Selecting-an-AWS-EC2-instance-for-machine-learning-workloads)).
+
+#### Table: Comparison of Requirements and Support
+
+| Platform        | Required GPU       | CUDA Version | PyTorch Version | Instance Example       |
+|-----------------|-------------------|--------------|-----------------|-----------------------|
+| Databricks      | Hopper (e.g., H100)| 12.3+ (12.6 in Runtime 16.0 ML) | 2.0+            | Check latest runtime for exact types |
+| AWS SageMaker   | Hopper (H100)     | 12.3+        | 2.0+            | ml.p5.48xlarge        |
+
+This table summarizes the technical requirements and expected support, aiding in configuration decisions.
+
+#### Conclusion
+By setting up a Databricks cluster with Hopper GPU support, installing Flash MLA, logging the model with MLflow, and deploying to SageMaker on ml.p5 instances, you can effectively use Flash MLA across both platforms. This approach leverages MLflow's integration for seamless deployment, ensuring high-performance inference with Hopper GPUs.
+
+### Key Citations
+- [FlashMLA: Efficient MLA decoding kernels GitHub](https://github.com/deepseek-ai/FlashMLA)
+- [Deploy MLflow Model to Amazon SageMaker MLflow](https://mlflow.org/docs/latest/deployment/deploy-model-to-sagemaker.html)
+- [Instance types available for use with Studio Classic Amazon SageMaker](https://docs.aws.amazon.com/sagemaker/latest/dg/notebooks-available-instance-types.html)
+- [Databricks Runtime 16.0 for Machine Learning Databricks](https://docs.databricks.com/en/release-notes/runtime/16.0ml.html)
+- [Announcing support for ml.p5 instances for Amazon SageMaker Model Training AWS](https://aws.amazon.com/about-aws/whats-new/2023/08/support-ml-p5-instances-amazon-sagemaker-model-training/)
+- [Selecting an AWS EC2 instance for machine learning workloads TechTarget](https://www.techtarget.com/searchcloudcomputing/tip/Selecting-an-AWS-EC2-instance-for-machine-learning-workloads)
