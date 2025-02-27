@@ -2,3 +2,7 @@ what is the open Source Flash MLA project by Deepseek in github. what value does
 
 
 how can i effectively use Flash MLA by Deepseek with mlflow on databricks and while hosting the model for inference on aws sagemaker
+
+how can update the existing attention mechanism of a pretrained model using flash mla
+
+how can i optimize a hugging face base bge model with Flash MLA
