@@ -393,7 +393,7 @@ When converting PyFunc models to ONNX, be aware of these important consideration
 
 The key to successful conversion is understanding exactly what kind of model is wrapped by your PyFunc interface and then applying the appropriate conversion technique for that specific model type.
 
-Would you like me to elaborate on converting a specific type of model to ONNX, or would you like to see how to validate the converted model to ensure equivalence with the original?
+Would you like me to elaborate on converting a specific type of model to ONNX, or would you like to see how to validate the converted model to ensure equivalence with the original?s
 ____________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 ____________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 ____________________________________________________________________________________________________________________________________________________________________________________________________________________________________

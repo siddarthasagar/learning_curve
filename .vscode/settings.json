@@ -1,0 +1,5 @@
+{
+    "python.analysis.generateWithTypeAnnotation": true,
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.newWorkspaceCreation.enabled": true
+}
