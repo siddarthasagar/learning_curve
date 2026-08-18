@@ -1,4 +1,5 @@
 {
+  "$schema": "https://app.kilo.ai/config.json",
   "plugin": [
     "file:///Users/siddarthasagarchinne/github/learning_curve/.kilo/plugins/graphify.js"
   ]
