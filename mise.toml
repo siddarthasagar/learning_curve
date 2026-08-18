@@ -47,3 +47,52 @@ find . -type d -name "__pycache__" -exec rm -rf {} +
 [tasks.run]
 description = "Run the Streamlit app"
 run = "uv run streamlit run src/markdowns_organizer/app.py"
+
+# ── Graphify (agent knowledge-graph skill) ─────────────────────────────────────
+
+[tasks.graphify-install]
+description = "Install graphify skills for Claude Code, Codex, OpenCode, Kilo, Copilot CLI, VS Code Copilot Chat, Antigravity, Pi"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+graphify claude install
+graphify codex install
+graphify opencode install
+graphify kilo install
+graphify copilot install
+graphify vscode install
+graphify antigravity install
+graphify pi install
+'''
+
+[tasks.graphify-uninstall]
+description = "Remove graphify skills for all agents (global)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+graphify claude uninstall
+graphify codex uninstall
+graphify opencode uninstall
+graphify kilo uninstall
+graphify copilot uninstall
+graphify vscode uninstall
+graphify antigravity uninstall
+graphify pi uninstall
+'''
+
+[tasks.graphify]
+description = "Reinstall graphify skills for all agents (uninstall, then install)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mise run graphify-uninstall
+mise run graphify-install
+'''
+
+[tasks.graphify-refresh]
+description = "Re-extract changed code into the graph (AST only, no LLM, no tokens)"
+run = "graphify update ."
+
+[tasks.graphify-viz]
+description = "Regenerate graph visualization and report from graphify-out"
+run = "graphify cluster-only ."
