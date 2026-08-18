@@ -1,0 +1,1 @@
+"""Markdown organizer Streamlit application."""

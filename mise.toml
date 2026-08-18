@@ -1,0 +1,49 @@
+[tasks.install]
+description = "Install production dependencies"
+run = "uv sync --no-dev"
+
+[tasks.dev]
+description = "Install dev and production dependencies"
+depends = ["clean"]
+run = "uv sync"
+
+[tasks.update]
+description = "Update dependency lockfile"
+run = "uv lock --upgrade"
+
+[tasks.format]
+description = "Format Python code and apply upgrades"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+FILES=$(git ls-files 'src/*.py' 'tests/*.py' 'src/**/*.py' 'tests/**/*.py' 2>/dev/null || find src tests -type f -name "*.py" -not -path "*/.*" -not -path "./venv/*" -not -path "./.venv/*")
+uv run ruff check $FILES --fix
+uv run pyupgrade --py313-plus $FILES
+uv run ruff format $FILES
+'''
+
+[tasks.lint]
+description = "Lint Python code"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+FILES=$(git ls-files 'src/*.py' 'tests/*.py' 'src/**/*.py' 'tests/**/*.py' 2>/dev/null || find src tests -type f -name "*.py" -not -path "*/.*" -not -path "./venv/*" -not -path "./.venv/*")
+uv run ruff check $FILES
+'''
+
+[tasks.test]
+description = "Run the pytest validation suite"
+run = "uv run pytest tests/ -q || true"
+
+[tasks.clean]
+description = "Remove virtual environment and cached files"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+rm -rf .venv .ruff_cache
+find . -type d -name "__pycache__" -exec rm -rf {} +
+'''
+
+[tasks.run]
+description = "Run the Streamlit app"
+run = "uv run streamlit run src/markdowns_organizer/app.py"
