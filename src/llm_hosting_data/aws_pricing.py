@@ -73,12 +73,19 @@ class InstancePrice:
     attributes already streamed through for pricing -- no separate API call
     or AWS credentials needed, since the Price List Bulk API already carries
     vCPU/memory/GPU/network/storage specs alongside the dollar figure.
-    ``gpu_model``/``gpu_architecture`` are the one exception: no AWS API
-    exposes those (verified 2026-08-18), so they're joined in from Vantage's
-    live instance catalog (``gpu_reference.py``) instead, by exact instance
-    type. Either field is ``None`` if that lookup fails or doesn't cover the
+    ``gpu_model``/``gpu_architecture``/``gpu_memory_bandwidth_gbps``/
+    ``gpu_nvlink_generation``/``gpu_nvlink_bandwidth_gbps`` are the
+    exception: no AWS API exposes any of those (verified 2026-08-18 for
+    model/architecture, 2026-08-19 for bandwidth/NVLink), so they're joined
+    in from ``gpu_reference.py`` instead -- model/architecture live from
+    Vantage, bandwidth/NVLink from ``config/gpu_hardware_specs.yaml``
+    (sourced from NVIDIA's own spec pages; neither AWS nor Vantage has that
+    data at all).
+    Any of them is ``None`` if that lookup fails or doesn't cover the
     instance type -- a best-effort enrichment, not something pricing itself
-    depends on.
+    depends on. ``gpu_memory`` (capacity, e.g. ``"48 GB"``) is a different
+    thing from ``gpu_memory_bandwidth_gbps`` (throughput, e.g. ``864.0``) --
+    don't conflate them.
     """
 
     service_code: str
@@ -90,7 +97,11 @@ class InstancePrice:
     gpu: str | None
     gpu_model: str | None
     gpu_architecture: str | None
+    gpu_compute_capability: str | None
     gpu_memory: str | None
+    gpu_memory_bandwidth_gbps: float | None
+    gpu_nvlink_generation: str | None
+    gpu_nvlink_bandwidth_gbps: float | None
     network_performance: str | None
     dedicated_ebs_throughput: str | None
     storage: str | None
@@ -347,7 +358,19 @@ def _build_instance_price(  # noqa: PLR0913, PLR0917 -- internal row builder, on
         gpu=attributes.get("gpu"),
         gpu_model=gpu_reference.gpu_model if gpu_reference else None,
         gpu_architecture=gpu_reference.architecture if gpu_reference else None,
+        gpu_compute_capability=gpu_reference.compute_capability
+        if gpu_reference
+        else None,
         gpu_memory=attributes.get("gpuMemory"),
+        gpu_memory_bandwidth_gbps=gpu_reference.memory_bandwidth_gbps
+        if gpu_reference
+        else None,
+        gpu_nvlink_generation=gpu_reference.nvlink_generation
+        if gpu_reference
+        else None,
+        gpu_nvlink_bandwidth_gbps=gpu_reference.nvlink_bandwidth_gbps
+        if gpu_reference
+        else None,
         network_performance=attributes.get("networkPerformance"),
         dedicated_ebs_throughput=attributes.get("dedicatedEbsThroughput"),
         storage=attributes.get("storage"),
@@ -375,7 +398,11 @@ class CombinedInstancePricing:
     gpu: str | None
     gpu_model: str | None
     gpu_architecture: str | None
+    gpu_compute_capability: str | None
     gpu_memory: str | None
+    gpu_memory_bandwidth_gbps: float | None
+    gpu_nvlink_generation: str | None
+    gpu_nvlink_bandwidth_gbps: float | None
     network_performance: str | None
     ec2_usd_per_hour: float | None
     sagemaker_usd_per_hour: float | None
@@ -427,7 +454,11 @@ def fetch_combined_pricing(
             gpu=price.gpu,
             gpu_model=price.gpu_model,
             gpu_architecture=price.gpu_architecture,
+            gpu_compute_capability=price.gpu_compute_capability,
             gpu_memory=price.gpu_memory,
+            gpu_memory_bandwidth_gbps=price.gpu_memory_bandwidth_gbps,
+            gpu_nvlink_generation=price.gpu_nvlink_generation,
+            gpu_nvlink_bandwidth_gbps=price.gpu_nvlink_bandwidth_gbps,
             network_performance=price.network_performance,
             ec2_usd_per_hour=price.usd_per_hour,
             sagemaker_usd_per_hour=sagemaker_price.usd_per_hour
@@ -446,7 +477,11 @@ def fetch_combined_pricing(
             gpu=sagemaker_price.gpu,
             gpu_model=sagemaker_price.gpu_model,
             gpu_architecture=sagemaker_price.gpu_architecture,
+            gpu_compute_capability=sagemaker_price.gpu_compute_capability,
             gpu_memory=sagemaker_price.gpu_memory,
+            gpu_memory_bandwidth_gbps=sagemaker_price.gpu_memory_bandwidth_gbps,
+            gpu_nvlink_generation=sagemaker_price.gpu_nvlink_generation,
+            gpu_nvlink_bandwidth_gbps=sagemaker_price.gpu_nvlink_bandwidth_gbps,
             network_performance=sagemaker_price.network_performance,
             ec2_usd_per_hour=None,
             sagemaker_usd_per_hour=sagemaker_price.usd_per_hour,

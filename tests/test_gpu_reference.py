@@ -146,7 +146,34 @@ def test_get_gpu_catalog_wraps_download_failure(
         gpu_ref.get_gpu_catalog()
 
 
-def test_lookup_gpu_reference_strips_sagemaker_ml_prefix() -> None:
+def _write_gpu_hardware_specs(tmp_path: Path) -> Path:
+    specs_path = tmp_path / "gpu_hardware_specs.yaml"
+    specs_path.write_text(
+        "g6e:\n"
+        "  memory_gb_per_gpu: 48.0\n"
+        "  memory_bandwidth_gbps: 864.0\n"
+        "  nvlink_generation: null\n"
+        "  nvlink_bandwidth_gbps: null\n"
+        "p5:\n"
+        "  memory_gb_per_gpu: 80.0\n"
+        "  memory_bandwidth_gbps: 3350.0\n"
+        "  nvlink_generation: NVLink4\n"
+        "  nvlink_bandwidth_gbps: 900.0\n",
+    )
+    return specs_path
+
+
+def test_lookup_gpu_reference_strips_sagemaker_ml_prefix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        gpu_ref,
+        "_GPU_HARDWARE_SPECS_PATH",
+        _write_gpu_hardware_specs(tmp_path),
+    )
+    # lookup_gpu_reference() returns a *new* object (bandwidth/NVLink data
+    # merged in -- see the next test), so compare fields, not identity.
     catalog = {
         "g6e.xlarge": gpu_ref.GpuReference(
             "g6e.xlarge",
@@ -156,8 +183,46 @@ def test_lookup_gpu_reference_strips_sagemaker_ml_prefix() -> None:
         ),
     }
 
-    assert (
-        gpu_ref.lookup_gpu_reference("ml.g6e.xlarge", catalog) is catalog["g6e.xlarge"]
-    )
-    assert gpu_ref.lookup_gpu_reference("g6e.xlarge", catalog) is catalog["g6e.xlarge"]
+    for lookup_key in ("ml.g6e.xlarge", "g6e.xlarge"):
+        result = gpu_ref.lookup_gpu_reference(lookup_key, catalog)
+        assert result is not None
+        assert result.instance_type == "g6e.xlarge"
+        assert result.gpu_model == "NVIDIA L40S"
+
     assert gpu_ref.lookup_gpu_reference("m5.xlarge", catalog) is None
+
+
+def test_lookup_gpu_reference_merges_in_static_bandwidth_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        gpu_ref,
+        "_GPU_HARDWARE_SPECS_PATH",
+        _write_gpu_hardware_specs(tmp_path),
+    )
+    catalog = {
+        "g6e.xlarge": gpu_ref.GpuReference(
+            "g6e.xlarge",
+            "NVIDIA L40S",
+            "Ada Lovelace",
+            "SM89",
+        ),
+        "p5.4xlarge": gpu_ref.GpuReference(
+            "p5.4xlarge",
+            "NVIDIA H100",
+            "Hopper",
+            "SM90",
+        ),
+    }
+
+    g6e = gpu_ref.lookup_gpu_reference("g6e.xlarge", catalog)
+    assert g6e is not None
+    assert g6e.memory_bandwidth_gbps == pytest.approx(864.0)
+    assert g6e.nvlink_generation is None  # g6e has no NVLink at all
+
+    p5 = gpu_ref.lookup_gpu_reference("p5.4xlarge", catalog)
+    assert p5 is not None
+    assert p5.memory_bandwidth_gbps == pytest.approx(3350.0)
+    assert p5.nvlink_generation == "NVLink4"
+    assert p5.nvlink_bandwidth_gbps == pytest.approx(900.0)

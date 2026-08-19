@@ -92,13 +92,79 @@ def load_aws_targets(config_path: Path) -> AwsTargets:
     )
 
 
-def load_benchmark_targets(config_path: Path) -> list[str]:
-    """Load a flat list of model-slug substrings from a YAML config file.
+@dataclass(frozen=True)
+class BenchmarkComparisonTargets:
+    """Baseline model slugs loaded from a YAML config file.
 
-    Expected shape::
+    Candidates are deliberately not configured here — they're auto-derived
+    from whichever ``config/hf_models.yaml`` repos have real OpenRouter
+    coverage (see ``model_instance_fit.discover_candidate_slugs()``), so
+    there's no second, driftable list of model families to keep in sync as
+    collections change. Only the baseline needs a manual slug: it's
+    typically closed-source and never appears in ``hf_models.yaml`` at all.
+    """
 
-        models:
+    baseline: list[str]
+
+
+def load_benchmark_targets(config_path: Path) -> BenchmarkComparisonTargets:
+    """Load the ``baseline`` model-slug list from a YAML config file.
+
+    Optional, defaults to an empty list. Expected shape::
+
+        baseline:
           - anthropic/claude-sonnet-5
     """
     raw = _load_mapping(config_path)
-    return list(raw.get("models") or [])
+    return BenchmarkComparisonTargets(baseline=list(raw.get("baseline") or []))
+
+
+def load_gpu_hardware_specs(config_path: Path) -> dict[str, dict[str, Any]]:
+    """Load the per-family GPU hardware spec table from a YAML file.
+
+    Kept as external data rather than a Python constant (2026-08-19, user
+    request, same reasoning as ``load_kernel_support_matrix``) — see
+    ``config/gpu_hardware_specs.yaml`` for the full field definitions and
+    sourcing. Expected shape::
+
+        p4de:
+          memory_gb_per_gpu: 80.0
+          memory_bandwidth_gbps: 2039.0
+          nvlink_generation: NVLink3
+          nvlink_bandwidth_gbps: 600.0
+    """
+    raw = _load_mapping(config_path)
+    for family, spec in raw.items():
+        if not isinstance(spec, dict):
+            msg = (
+                f"GPU hardware spec entry {family!r} must be a mapping, "
+                f"got {type(spec).__name__}: {config_path}"
+            )
+            raise ConfigError(msg)
+    return raw
+
+
+def load_kernel_support_matrix(config_path: Path) -> dict[str, dict[str, str]]:
+    """Load the SM -> format -> support-level kernel matrix from a YAML file.
+
+    Kept as external data rather than a Python constant (2026-08-19, user
+    request): unlike fixed GPU hardware specs, kernel/software support for a
+    format on an architecture moves as vLLM/CUTLASS etc. mature, so this is
+    the file to update, not code — see ``config/kernel_support_matrix.yaml``
+    for the full doc-04-sourced table and level definitions. Expected
+    shape::
+
+        SM90:
+          bf16: native
+          fp8_dense: native
+          nvfp4_dense: fallback
+    """
+    raw = _load_mapping(config_path)
+    for sm, formats in raw.items():
+        if not isinstance(formats, dict):
+            msg = (
+                f"Kernel support matrix entry {sm!r} must be a mapping of "
+                f"format -> support level, got {type(formats).__name__}: {config_path}"
+            )
+            raise ConfigError(msg)
+    return raw

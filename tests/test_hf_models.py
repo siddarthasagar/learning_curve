@@ -7,14 +7,24 @@ against the real Hub) was already used to validate the GiB numbers by hand.
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import pytest
 from huggingface_hub.utils import RepositoryNotFoundError
 
+from llm_hosting_data import hf_models
 from llm_hosting_data.hf_models import ModelNotFoundError, ModelSize, get_model_size
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 _BYTES_PER_GIB = 1024**3
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cache_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every test's model-size cache in its own tmp dir, not dump/cache/."""
+    monkeypatch.setattr(hf_models, "CACHE_DIR", tmp_path)
 
 
 def test_total_gib_uses_binary_not_decimal_conversion() -> None:
@@ -64,3 +74,50 @@ def test_get_model_size_sums_sibling_file_sizes(
 
     assert size.total_bytes == 3_000
     assert size.file_count == 2
+
+
+def test_get_model_size_reuses_cache_on_second_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Sibling:
+        def __init__(self, size: int | None) -> None:
+            self.size = size
+
+    class _Info:
+        siblings: ClassVar = [_Sibling(5_000)]
+
+    calls = []
+    monkeypatch.setattr(
+        "llm_hosting_data.hf_models.HfApi.model_info",
+        lambda *_a, **_k: calls.append(1) or _Info(),
+    )
+
+    first = get_model_size("org/model")
+    second = get_model_size("org/model")
+
+    assert len(calls) == 1  # second call hit the cache, not the API
+    assert second == first
+
+
+def test_get_model_size_force_refresh_bypasses_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Sibling:
+        def __init__(self, size: int | None) -> None:
+            self.size = size
+
+    class _Info:
+        def __init__(self, size: int) -> None:
+            self.siblings = [_Sibling(size)]
+
+    sizes = iter([1_000, 2_000])
+    monkeypatch.setattr(
+        "llm_hosting_data.hf_models.HfApi.model_info",
+        lambda *_a, **_k: _Info(next(sizes)),
+    )
+
+    first = get_model_size("org/model")
+    second = get_model_size("org/model", force_refresh=True)
+
+    assert first.total_bytes == 1_000
+    assert second.total_bytes == 2_000  # re-fetched, not served from cache

@@ -1,0 +1,36 @@
+ref: main
+fetched_at: '2026-08-19T18:42:40.938217+00:00'
+methods:
+- awq
+- auto_awq
+- fp8
+- fbgemm_fp8
+- fp_quant
+- modelopt
+- modelopt_fp4
+- modelopt_mxfp8
+- modelopt_mixed
+- auto_gptq
+- gptq
+- gptq_marlin
+- awq_marlin
+- humming
+- compressed-tensors
+- experts_int8
+- quark
+- moe_wna16
+- torchao
+- inc
+- mxfp4
+- gpt_oss_mxfp4
+- deepseek_v4_fp8
+- online
+- fp8_per_tensor
+- fp8_per_block
+- fp8_per_channel
+- int8_per_channel_weight_only
+- nvfp4_per_token
+- mxfp8
+deprecated_methods:
+- fbgemm_fp8
+- fp_quant

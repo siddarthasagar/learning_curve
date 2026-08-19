@@ -1,25 +1,22 @@
-# Model slug substrings to track via OpenRouter's benchmarks API.
+# Baseline model slugs for OpenRouter's benchmarks API, and for the
+# model<->instance comparison report (model_instance_fit.py).
 #
 # OpenRouter identifies models by a dated permaslug (e.g.
 # "anthropic/claude-sonnet-5-20260630") that changes as new snapshots get
-# evaluated -- these are matched as case-insensitive substrings against
-# model_permaslug, not exact IDs, so they keep resolving as OpenRouter
-# re-dates its entries.
+# evaluated -- every slug below is matched as a case-insensitive substring
+# against model_permaslug, not an exact ID, so it keeps resolving as
+# OpenRouter re-dates its entries.
 #
-# Scoped to the models research_topics/llm_hosting/05-sonnet5-replacement-shortlist.md
-# tracks: the Sonnet 5 baseline (whose tool-use scores Anthropic never
-# published — see that doc's Open Items #1), its shortlisted replacement
-# candidates, and the models that doc rejected (kept here for comparison).
+# There is deliberately no "candidates:" list here. The `compare` subcommand
+# auto-derives candidates instead -- every OpenRouter model family (release
+# date stripped) that matches at least one repo already in
+# config/hf_models.yaml's resolved candidate pool automatically gets
+# compared, with no second hand-typed list to keep in sync as collections
+# change (2026-08-19, user request). Only the baseline needs a slug here: a
+# closed-source model has no HF repo to auto-derive it from.
 #
 # Usage: uv run llm-hosting-data benchmarks --config config/benchmark_models.yaml
+#        uv run llm-hosting-data compare --benchmark-config config/benchmark_models.yaml
 
-models:
-  - anthropic/claude-sonnet-5 # baseline
-  - qwen/qwen3.5-397b-a17b # doc 05 shortlist #2
-  - qwen/qwen3.5-122b-a10b # doc 05 shortlist #3 (fits one g7e GPU)
-  - z-ai/glm-5.2 # doc 05 shortlist #4
-  - moonshotai/kimi-k3 # doc 05 shortlist #1 (needs 8x GB300)
-  - moonshotai/kimi-k2.5
-  - nvidia/nemotron-3-super-120b-a12b # doc 05: rejected, kept for comparison
-  - nvidia/nemotron-3-ultra-550b-a55b
-  - deepseek/deepseek-v4 # doc 05: rejected (Pro + Flash), kept for comparison
+baseline:
+  - anthropic/claude-sonnet-5

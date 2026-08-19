@@ -1,0 +1,68 @@
+# Kernel/quantization-format support by GPU compute capability (SM), used by
+# model_instance_fit.py's kernel-support elimination step.
+#
+# Transcribed from research_topics/llm_hosting/04-aws-gpu-capacity-quantization-pricing-matrix.md
+# section 5, "Quantization by architecture -- the normalized view" (2026-08-19).
+# Kept here as data, not a Python constant, deliberately: unlike the GPU
+# hardware specs elsewhere in this pipeline (memory, bandwidth -- fixed once
+# a card ships), kernel/software support for a given format on a given
+# architecture moves as vLLM/CUTLASS/etc. mature -- e.g. NVFP4 support outside
+# SM100 could plausibly go from "fallback" to "native" with a future kernel
+# release. This file is the thing to re-check/update against doc 04 (or a
+# newer source) when that happens, without touching code.
+#
+# Levels:
+#   native   - works as designed, full performance
+#   fallback - runs via a different kernel path (e.g. FP8 on A100 emulates
+#              in BF16, "with zero benefit" per doc 04) -- works, not optimal
+#   blocked  - does not run at all for that format on that architecture
+#
+# Format keys: bf16, fp8_dense, fp8_moe, int8_w8a8, int4_w4a16, nvfp4_dense,
+# nvfp4_moe -- dense/MoE are split only where doc 04's own table splits them.
+#
+# Used by: uv run llm-hosting-data compare --kernel-config config/kernel_support_matrix.yaml
+
+SM80: # A100 (p4d/p4de)
+  bf16: native
+  fp8_dense: fallback
+  fp8_moe: fallback
+  int8_w8a8: native
+  int4_w4a16: native
+  nvfp4_dense: fallback
+  nvfp4_moe: fallback
+
+SM89: # L40S (g6e)
+  bf16: native
+  fp8_dense: native
+  fp8_moe: fallback
+  int8_w8a8: native
+  int4_w4a16: native
+  nvfp4_dense: fallback
+  nvfp4_moe: fallback
+
+SM90: # H100/H200 (p5/p5en)
+  bf16: native
+  fp8_dense: native
+  fp8_moe: native
+  int8_w8a8: native
+  int4_w4a16: native
+  nvfp4_dense: fallback
+  nvfp4_moe: fallback
+
+SM100: # B200/B300 (p6-b200/p6-b300)
+  bf16: native
+  fp8_dense: native
+  fp8_moe: native
+  int8_w8a8: native
+  int4_w4a16: native
+  nvfp4_dense: native
+  nvfp4_moe: native
+
+SM120: # RTX PRO 6000 (g7e)
+  bf16: native
+  fp8_dense: native
+  fp8_moe: fallback
+  int8_w8a8: blocked
+  int4_w4a16: native
+  nvfp4_dense: fallback
+  nvfp4_moe: fallback

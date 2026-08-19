@@ -31,16 +31,16 @@ rather than on every run.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any
+from dataclasses import asdict, dataclass, replace
+from pathlib import Path
+from typing import Any
 
 import ijson
 import requests
 
+from llm_hosting_data.config import load_gpu_hardware_specs
+from llm_hosting_data.instance_naming import family_of
 from llm_hosting_data.paths import CACHE_DIR as _SHARED_CACHE_DIR
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 CACHE_DIR = _SHARED_CACHE_DIR / "vantage"
 
@@ -63,12 +63,47 @@ class GpuReference:
     2026-08-19). Requiring every field to be present would silently drop
     the whole record over one missing field, discarding the parts that are
     there.
+
+    ``memory_bandwidth_gbps``/``nvlink_generation``/``nvlink_bandwidth_gbps``
+    are not from Vantage at all -- see ``_GPU_HARDWARE_SPECS_PATH`` below for
+    why and where they come from. They default to ``None`` here so
+    ``_extract_gpu_catalog`` doesn't need to know about them; they're merged
+    in by :func:`lookup_gpu_reference`.
     """
 
     instance_type: str
     gpu_model: str
     architecture: str | None
     compute_capability: str | None
+    memory_bandwidth_gbps: float | None = None
+    nvlink_generation: str | None = None
+    nvlink_bandwidth_gbps: float | None = None
+
+
+# GPU memory (HBM/GDDR) bandwidth and NVLink specs, by instance family.
+# Neither AWS's Price List Bulk API nor Vantage's catalog expose any of this
+# -- confirmed 2026-08-19, no bandwidth/nvlink/interconnect/hbm key anywhere
+# in either source's full attribute set (Vantage's own `GPU_model` string
+# also can't distinguish A100 40GB from 80GB, so even if it had a bandwidth
+# field, family -- not GPU_model -- is the correct join key here anyway).
+# Kept as external YAML (`config/gpu_hardware_specs.yaml`), not a Python
+# constant, since it's the same file `model_instance_fit.py` sources its
+# per-GPU nameplate memory from -- see that file's own comment and the
+# tracking doc §5/§6 for why (2026-08-19, user request). Loaded fresh per
+# lookup rather than cached: the file is tiny, and this keeps the path
+# trivially monkeypatchable in tests without cross-test cache leakage.
+_BandwidthSpec = tuple[float | None, str | None, float | None]
+_GPU_HARDWARE_SPECS_PATH = Path("config/gpu_hardware_specs.yaml")
+
+
+def _bandwidth_spec_for_family(family: str) -> _BandwidthSpec:
+    specs = load_gpu_hardware_specs(_GPU_HARDWARE_SPECS_PATH)
+    entry = specs.get(family, {})
+    return (
+        entry.get("memory_bandwidth_gbps"),
+        entry.get("nvlink_generation"),
+        entry.get("nvlink_bandwidth_gbps"),
+    )
 
 
 def _raw_catalog_path() -> Path:
@@ -169,11 +204,29 @@ def lookup_gpu_reference(
     instance_type: str,
     catalog: dict[str, GpuReference] | None = None,
 ) -> GpuReference | None:
-    """Look up GPU model/architecture for one instance type.
+    """Look up GPU model/architecture/bandwidth for one instance type.
 
     Strips SageMaker's "ml." prefix if present. Pass a pre-fetched
     ``catalog`` (from :func:`get_gpu_catalog`, called once) when looking up
     many instance types, to avoid re-reading the cache file per lookup.
+
+    Memory-bandwidth/NVLink fields are merged in from
+    ``config/gpu_hardware_specs.yaml`` here, at lookup time rather than
+    baked into the cached catalog -- so updating that file takes effect
+    immediately without needing a Vantage re-extraction.
     """
+    bare_instance_type = instance_type.removeprefix("ml.")
     resolved_catalog = catalog if catalog is not None else get_gpu_catalog()
-    return resolved_catalog.get(instance_type.removeprefix("ml."))
+    base = resolved_catalog.get(bare_instance_type)
+    if base is None:
+        return None
+
+    mem_bandwidth, nvlink_gen, nvlink_bandwidth = _bandwidth_spec_for_family(
+        family_of(bare_instance_type),
+    )
+    return replace(
+        base,
+        memory_bandwidth_gbps=mem_bandwidth,
+        nvlink_generation=nvlink_gen,
+        nvlink_bandwidth_gbps=nvlink_bandwidth,
+    )

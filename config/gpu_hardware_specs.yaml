@@ -1,0 +1,103 @@
+# Per-GPU physical hardware specs, by AWS instance family. Used by both
+# gpu_reference.py (memory bandwidth + NVLink, merged into the Vantage-backed
+# GPU catalog at lookup time) and model_instance_fit.py (nameplate memory,
+# for the tight/best-fit capacity calculation) -- a single shared source of
+# truth for what were previously two independent, possibly-drifting tables.
+#
+# Externalized as data rather than a Python constant (2026-08-19, user
+# request, following the same pattern as config/kernel_support_matrix.yaml):
+# these are physical hardware facts, fixed once a card ships -- unlike
+# kernel/software support they are not expected to need an automated update
+# pipeline, but keeping them here still makes them easy to re-check/correct
+# by hand without touching code.
+#
+# Fields (any may be null when a source genuinely doesn't have the number --
+# never guessed):
+#   memory_gb_per_gpu     - nameplate VRAM per GPU, decimal GB, from doc 04
+#                            section 3's own "Memory/GPU" pricing column.
+#   memory_bandwidth_gbps - GB/s, from NVIDIA's own spec pages (verified live
+#                            2026-08-19) or doc 01/04's own already-cited
+#                            figures -- see gpu_reference.py's prior history
+#                            for the exact sourcing per family.
+#   nvlink_generation     - e.g. "NVLink3"/"NVLink4"/"NVLink5", null if the
+#                            family has no NVLink at all (e.g. g6e/g7e).
+#   nvlink_bandwidth_gbps - GB/s, null under the same conditions.
+#
+# Used by: gpu_reference.py (fixed path, loaded internally -- these two
+# fields were never CLI-configurable before this move either) and
+# model_instance_fit.py (loaded once in cli.py's `compare` via
+# --gpu-specs-config, passed through explicitly as part of ComparisonDataset).
+#
+# DECIDED (2026-08-20, was an open question 2026-08-19 -- now resolved):
+# memory_gb_per_gpu *is* mostly available live from AWS's own `gpuMemory`
+# attribute (already flows through as InstancePrice.gpu_memory, e.g. "640 GB
+# HBM2e"), and is confirmed buggy for p5en.48xlarge specifically (reports
+# one GPU's 141 GB, not the true 8x141=1128 GB total). A live-derived
+# alternative was considered (parse `gpu_memory`, strip the HBM-generation
+# suffix, multiply by `gpu` count, with a hardcoded p5en correction) but
+# rejected: hardware specs don't change once a card ships, so there's
+# nothing to gain from re-deriving this live every run, and NVIDIA's own
+# spec pages are unquestionable ground truth once cited directly -- user is
+# enriching/completing this field by hand straight from those pages, the
+# same sourcing memory_bandwidth_gbps/nvlink_* already use. Stays static,
+# by choice, not by limitation.
+
+g6e: # L40S
+  memory_gb_per_gpu: 48.0
+  memory_bandwidth_gbps: 864.0
+  nvlink_generation: null
+  nvlink_bandwidth_gbps: null
+
+g7e: # RTX PRO 6000 Blackwell Server Edition
+  memory_gb_per_gpu: 96.0
+  memory_bandwidth_gbps: 1597.0
+  nvlink_generation: null
+  nvlink_bandwidth_gbps: null
+
+p4d: # A100 40GB -- NVIDIA's current spec page no longer lists this variant's bandwidth
+  memory_gb_per_gpu: 40.0
+  memory_bandwidth_gbps: null
+  nvlink_generation: NVLink3
+  nvlink_bandwidth_gbps: 600.0
+
+p4de: # A100 80GB
+  memory_gb_per_gpu: 80.0
+  memory_bandwidth_gbps: 2039.0
+  nvlink_generation: NVLink3
+  nvlink_bandwidth_gbps: 600.0
+
+p5: # H100
+  memory_gb_per_gpu: 80.0
+  memory_bandwidth_gbps: 3350.0
+  nvlink_generation: NVLink4
+  nvlink_bandwidth_gbps: 900.0
+
+p5e: # H200, pricing unverified per doc 04
+  memory_gb_per_gpu: 141.0
+  memory_bandwidth_gbps: 4800.0
+  nvlink_generation: NVLink4
+  nvlink_bandwidth_gbps: 900.0
+
+p5en: # H200
+  memory_gb_per_gpu: 141.0
+  memory_bandwidth_gbps: 4800.0
+  nvlink_generation: NVLink4
+  nvlink_bandwidth_gbps: 900.0
+
+p6-b200: # B200 -- no standalone NVIDIA spec page exists (doc 03 section 0); bandwidth left null
+  memory_gb_per_gpu: 179.0
+  memory_bandwidth_gbps: null
+  nvlink_generation: NVLink5
+  nvlink_bandwidth_gbps: 1800.0
+
+p6-b300: # B300 -- same caveat as B200
+  memory_gb_per_gpu: 268.0
+  memory_bandwidth_gbps: null
+  nvlink_generation: NVLink5
+  nvlink_bandwidth_gbps: 1800.0
+
+p6e-gb200: # GB200 UltraServer -- doc 04 section 3's own figure; UltraServer-only, yields zero SKUs today
+  memory_gb_per_gpu: 185.0
+  memory_bandwidth_gbps: null
+  nvlink_generation: NVLink5
+  nvlink_bandwidth_gbps: null
