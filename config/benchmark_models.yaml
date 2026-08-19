@@ -1,0 +1,25 @@
+# Model slug substrings to track via OpenRouter's benchmarks API.
+#
+# OpenRouter identifies models by a dated permaslug (e.g.
+# "anthropic/claude-sonnet-5-20260630") that changes as new snapshots get
+# evaluated -- these are matched as case-insensitive substrings against
+# model_permaslug, not exact IDs, so they keep resolving as OpenRouter
+# re-dates its entries.
+#
+# Scoped to the models research_topics/llm_hosting/05-sonnet5-replacement-shortlist.md
+# tracks: the Sonnet 5 baseline (whose tool-use scores Anthropic never
+# published — see that doc's Open Items #1), its shortlisted replacement
+# candidates, and the models that doc rejected (kept here for comparison).
+#
+# Usage: uv run llm-hosting-data benchmarks --config config/benchmark_models.yaml
+
+models:
+  - anthropic/claude-sonnet-5 # baseline
+  - qwen/qwen3.5-397b-a17b # doc 05 shortlist #2
+  - qwen/qwen3.5-122b-a10b # doc 05 shortlist #3 (fits one g7e GPU)
+  - z-ai/glm-5.2 # doc 05 shortlist #4
+  - moonshotai/kimi-k3 # doc 05 shortlist #1 (needs 8x GB300)
+  - moonshotai/kimi-k2.5
+  - nvidia/nemotron-3-super-120b-a12b # doc 05: rejected, kept for comparison
+  - nvidia/nemotron-3-ultra-550b-a55b
+  - deepseek/deepseek-v4 # doc 05: rejected (Pro + Flash), kept for comparison

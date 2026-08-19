@@ -48,6 +48,10 @@ find . -type d -name "__pycache__" -exec rm -rf {} +
 description = "Run the Streamlit app"
 run = "uv run streamlit run src/markdowns_organizer/app.py"
 
+[tasks.llm-data]
+description = "Run the AWS pricing / HuggingFace model size CLI (pass args after --)"
+run = "uv run llm-hosting-data"
+
 # ── Graphify (agent knowledge-graph skill) ─────────────────────────────────────
 
 [tasks.graphify-install]

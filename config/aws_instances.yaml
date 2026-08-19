@@ -1,0 +1,44 @@
+# AWS instance families / individual types to price by default.
+#
+# `families` is the primary mechanism: each entry is the token AWS's own
+# `<family>.<size>` naming uses (e.g. "g6e" covers g6e.xlarge, g6e.2xlarge,
+# g6e.4xlarge, ... every size that family currently ships). Resolved live
+# from the Price List Bulk API at fetch time, not a hand-maintained catalog
+# of sizes -- if AWS adds a new size to a family, it shows up on the next
+# run with no config edit, same reasoning as config/hf_models.yaml's
+# Collection slugs.
+#
+# Note p4d and p4de are separate families, not "p4" + a size suffix --
+# "p4de.24xlarge" also starts with the string "p4d", so a family list must
+# name p4d and p4de individually rather than a shared "p4" prefix.
+#
+# Usage: uv run llm-hosting-data aws-pricing --service ec2 --config config/aws_instances.yaml
+
+families:
+  - p4d
+  - p4de
+  - p5
+  - p5e # verified 2026-08-18: yields zero SKUs currently -- doc 04 also marked p5e pricing "unverified"; kept in case AWS lists it later
+  - p5en
+  - p6-b200
+  - p6-b300
+  - p6e-gb200 # verified 2026-08-18: yields zero SKUs -- UltraServer-only, not a standard on-demand instance type (matches doc 04's own note)
+
+# Individual instance types to add beyond whatever the families above cover.
+#
+# g6e and g7e are listed here rather than as families: within each family,
+# several sizes share identical GPU count/memory and only add vCPU/RAM
+# (g6e.2/4/8/16xlarge all match g6e.xlarge's 1x L40S/48 GB; g6e.24xlarge
+# matches g6e.12xlarge's 4x/192 GB; g7e.4/8xlarge match g7e.2xlarge's
+# 1x/96 GB) -- doc 04 itself only shows the GPU-memory-distinct sizes for
+# exactly this reason ("Instance sizes shown are only those that differ in
+# GPU count or GPU memory"). These seven are that reduced set, verified
+# against doc 04's master table 2026-08-18:
+instance_types:
+  - g6e.xlarge # 1x L40S, 48 GB
+  - g6e.12xlarge # 4x L40S, 192 GB
+  - g6e.48xlarge # 8x L40S, 384 GB
+  - g7e.2xlarge # 1x RTX PRO 6000, 96 GB
+  - g7e.12xlarge # 2x RTX PRO 6000, 192 GB
+  - g7e.24xlarge # 4x RTX PRO 6000, 384 GB
+  - g7e.48xlarge # 8x RTX PRO 6000, 768 GB

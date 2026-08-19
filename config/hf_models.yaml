@@ -1,0 +1,51 @@
+# HuggingFace repos/collections/orgs to track by default.
+#
+# `collections` is the primary mechanism: each slug below is a real,
+# HfApi().get_collection()-verified HuggingFace Collection covering exactly
+# the ~9 orgs/collections research_topics/llm_hosting/04-... scopes to
+# (checked 2026-08-18). Using collections instead of a hand-typed repo list
+# means a new checkpoint a lab adds to its own collection shows up on the
+# next run with no config edit — the actual point of Phase 3 in
+# documents/llm-hosting-data-pipeline-plan.md.
+#
+# Slug format: "namespace/readable-title-slug" is enough — you do NOT need
+# the long hex ID HF appends when you open a collection in the browser
+# (e.g. the page at huggingface.co/collections/Qwen/qwen35-6992e30... also
+# resolves at just "Qwen/qwen35"; that hex suffix is HF's internal object ID
+# for the collection, auto-generated, and only there to survive the title
+# being renamed later — the API accepts the readable prefix alone and
+# resolves it to whichever collection currently owns that slug).
+#
+# To find a new collection's slug: open the lab's collections tab on
+# huggingface.co (e.g. huggingface.co/Qwen/collections) and read the
+# "namespace/readable-slug" part of the URL when you click into one — drop
+# everything from the trailing "-<hex>" onward. Or skip the browser
+# entirely and list them via the API:
+#   uv run python -c "
+#   from huggingface_hub import HfApi
+#   for c in HfApi().list_collections(owner='Qwen'):
+#       print(c.slug, '|', c.title)"
+# (that call returns a truncated item preview per collection, not the full
+# membership — use get_collection()/list_collection_model_ids() for that.)
+#
+# Usage: uv run llm-hosting-data hf-size --config config/hf_models.yaml
+
+collections:
+  - Qwen/qwen35 # Qwen3.5
+  - Qwen/qwen36 # Qwen3.6
+  - Qwen/qwen38 # Qwen3.8
+  - nvidia/nvidia-nemotron-v3 # NVIDIA Nemotron v3
+  - nvidia/inference-optimized-checkpoints-with-model-optimizer # NVIDIA IOC
+  - zai-org/glm-52 # GLM-5.2
+  - moonshotai/kimi-k3 # Kimi K3
+  - moonshotai/kimi-k25 # Kimi K2.5
+  - deepseek-ai/deepseek-v4 # DeepSeek V4
+
+# Ad hoc extras not covered by any collection above — add one-offs here.
+repo_ids: []
+
+# HF orgs/authors to expand at fetch time (adds every model repo under each —
+# much broader and noisier than a Collection, since it includes datasets'
+# adjacent models, WIP checkpoints, etc.; use for "everything from this lab"
+# rather than the curated set the collections above already give you).
+authors: []
