@@ -475,12 +475,13 @@ Support is a property of the SM, not the instance size. This is the same informa
 **NVIDIA specifications**
 - L40S — https://www.nvidia.com/en-in/data-center/l40s/#specifications
 - RTX PRO 6000 Blackwell SE — https://www.nvidia.com/en-in/data-center/rtx-pro-6000-blackwell-server-edition/#specs
-- A100 (**not** A800 — that is the China-export variant with NVLink cut to 400 GB/s) — https://www.nvidia.com/en-us/data-center/a100/
+- A100 (**not** A800 — that is the China-export variant with NVLink cut to 400 GB/s) — https://www.nvidia.com/en-us/data-center/a100/#specifications
 - H100 — https://www.nvidia.com/en-us/data-center/h100/#specifications
 - H200 — https://www.nvidia.com/en-us/data-center/h200/#specifications
 - GB200 NVL72 — https://www.nvidia.com/en-us/data-center/gb200-nvl72/#specs
 - GB300 NVL72 — https://www.nvidia.com/en-us/data-center/gb300-nvl72/#specs
-- B200/B300 have no standalone page — see HGX (https://www.nvidia.com/en-us/data-center/hgx/) and Blackwell architecture (https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/)
+- B200/B300 - https://www.nvidia.com/en-us/data-center/hgx/#specifications
+- Blackwell architecture (https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/)
 
 **Model collections (recommendations in §4 draw only from these)**
 - NVIDIA Nemotron v3 — https://huggingface.co/collections/nvidia/nvidia-nemotron-v3

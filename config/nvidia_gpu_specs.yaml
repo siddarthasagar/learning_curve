@@ -1,0 +1,308 @@
+# NVIDIA Data Center GPU Hardware Configurations
+# Extracted from official NVIDIA product pages / datasheets
+
+l40s:
+  name: "NVIDIA L40S"
+  architecture: "Ada Lovelace"
+  source: "https://www.nvidia.com/en-in/data-center/l40s/#specifications"
+  form_factor: "PCIe, dual-slot, full-height full-length (FHFL)"
+  gpu_memory:
+    capacity: "48 GB GDDR6 with ECC"
+    bandwidth: "864 GB/s"
+  compute:
+    fp32: "91.6 TFLOPS"
+    tf32_tensor_core: "183 TFLOPS (366 TFLOPS with sparsity)"
+    fp16_bf16_tensor_core: "362.05 TFLOPS (733 TFLOPS with sparsity)"
+    fp8_tensor_core: "733 TFLOPS (1466 TFLOPS with sparsity)"
+    rt_core_performance: "209 TFLOPS"
+  tensor_cores_generation: "4th generation"
+  rt_cores_generation: "3rd generation"
+  decoders: "3 NVDEC, 3 NVJPEG"
+  encoders: "3 NVENC (AV1)"
+  interconnect: "PCIe Gen4 x16: 64 GB/s"
+  max_tdp: "350W (configurable)"
+  nvidia_ai_enterprise: "5-year included"
+
+rtx_pro_6000_blackwell_server_edition:
+  name: "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  architecture: "Blackwell (GB202)"
+  source: "https://www.nvidia.com/en-in/data-center/rtx-pro-6000-blackwell-server-edition/#specs"
+  form_factor: "PCIe 5.0 x16, dual-slot, passive/fanless, 4.4in (H) x 10.5in (L)"
+  gpu_memory:
+    capacity: "96 GB GDDR7 with ECC"
+    bus_width: "512-bit"
+    bandwidth: "1597 GB/s"
+  compute:
+    cuda_cores: 24064
+    tensor_cores: "752 (5th generation)"
+    rt_cores: "188 (4th generation)"
+    fp32: "120 TFLOPS"
+    fp4_ai_peak: "4 PFLOPS"
+    rt_core_performance: "355 TFLOPS"
+  multi_instance_gpu: "Up to 4 MIGs @ 24GB each"
+  interconnect: "PCIe Gen5 x16"
+  max_tdp: "Up to 600W (configurable, 400-600W range)"
+  video_engines: "4x NVENC, 4x NVDEC"
+  transformer_engine: "2nd generation"
+
+a100:
+  name: "NVIDIA A100 (80GB, non-export-restricted)"
+  architecture: "Ampere"
+  source: "https://www.nvidia.com/en-us/data-center/a100/#specifications"
+  note: "Distinct from A800 (China-export variant with NVLink capped at 400 GB/s)"
+  variants:
+    sxm4_80gb:
+      form_factor: "SXM4"
+      gpu_memory:
+        capacity: "80 GB HBM2e"
+        bandwidth: "2039 GB/s"
+      compute:
+        fp64: "9.7 TFLOPS"
+        fp64_tensor_core: "19.5 TFLOPS"
+        fp32: "19.5 TFLOPS"
+        tf32_tensor_core: "156 TFLOPS (312 TFLOPS with sparsity)"
+        bf16_fp16_tensor_core: "312 TFLOPS (624 TFLOPS with sparsity)"
+        int8_tensor_core: "624 TOPS (1248 TOPS with sparsity)"
+      interconnect: "NVLink: 600 GB/s | PCIe Gen4: 64 GB/s"
+      max_tdp: "400W"
+      multi_instance_gpu: "Up to 7 MIGs @ 10GB each"
+    pcie_80gb:
+      form_factor: "PCIe"
+      gpu_memory:
+        capacity: "80 GB HBM2e"
+        bandwidth: "1935 GB/s"
+      interconnect: "NVLink Bridge (2 GPUs): 600 GB/s | PCIe Gen4: 64 GB/s"
+      max_tdp: "300W"
+    pcie_40gb:
+      form_factor: "PCIe"
+      gpu_memory:
+        capacity: "40 GB HBM2"
+        bandwidth: "1555 GB/s"
+      max_tdp: "250W"
+  server_options: "NVIDIA HGX A100 with 4 or 8 GPUs; DGX A100 with 8 GPUs"
+  nvswitch_scale: "Scales to thousands of A100 GPUs via NVLink, NVSwitch, InfiniBand"
+
+h100:
+  name: "NVIDIA H100"
+  architecture: "Hopper"
+  source: "https://www.nvidia.com/en-us/data-center/h100/#specifications"
+  variants:
+    sxm:
+      form_factor: "SXM"
+      gpu_memory:
+        capacity: "80 GB"
+        bandwidth: "3.35 TB/s"
+      compute:
+        fp64: "34 TFLOPS"
+        fp64_tensor_core: "67 TFLOPS"
+        fp32: "67 TFLOPS"
+        tf32_tensor_core: "989 TFLOPS (with sparsity)"
+        bf16_tensor_core: "1979 TFLOPS (with sparsity)"
+        fp16_tensor_core: "1979 TFLOPS (with sparsity)"
+        fp8_tensor_core: "3958 TFLOPS (with sparsity)"
+        int8_tensor_core: "3958 TOPS (with sparsity)"
+      max_tdp: "Up to 700W (configurable)"
+      multi_instance_gpu: "Up to 7 MIGs @ 10GB each"
+      interconnect: "NVLink: 900 GB/s | PCIe Gen5: 128 GB/s"
+      server_options: "HGX H100 (4 or 8 GPU), DGX H100 (8 GPU)"
+    nvl:
+      form_factor: "PCIe, dual-slot, air-cooled"
+      gpu_memory:
+        capacity: "94 GB"
+        bandwidth: "3.9 TB/s"
+      compute:
+        fp64: "30 TFLOPS"
+        fp64_tensor_core: "60 TFLOPS"
+        fp32: "60 TFLOPS"
+        tf32_tensor_core: "835 TFLOPS (with sparsity)"
+        bf16_tensor_core: "1671 TFLOPS (with sparsity)"
+        fp16_tensor_core: "1671 TFLOPS (with sparsity)"
+        fp8_tensor_core: "3341 TFLOPS (with sparsity)"
+        int8_tensor_core: "3341 TOPS (with sparsity)"
+      max_tdp: "350-400W (configurable)"
+      multi_instance_gpu: "Up to 7 MIGs @ 12GB each"
+      interconnect: "NVLink: 600 GB/s | PCIe Gen5: 128 GB/s"
+      server_options: "Partner and NVIDIA-Certified Systems, 1-8 GPUs"
+  decoders: "7 NVDEC, 7 NVJPEG"
+  tensor_cores_generation: "4th generation"
+
+h200:
+  name: "NVIDIA H200"
+  architecture: "Hopper"
+  source: "https://www.nvidia.com/en-us/data-center/h200/#specifications"
+  variants:
+    sxm:
+      form_factor: "SXM"
+      gpu_memory:
+        capacity: "141 GB HBM3e"
+        bandwidth: "4.8 TB/s"
+      compute:
+        fp64: "34 TFLOPS"
+        fp64_tensor_core: "67 TFLOPS"
+        fp32: "67 TFLOPS"
+        tf32_tensor_core: "989 TFLOPS (with sparsity)"
+        bf16_tensor_core: "1979 TFLOPS (with sparsity)"
+        fp16_tensor_core: "1979 TFLOPS (with sparsity)"
+        fp8_tensor_core: "3958 TFLOPS (with sparsity)"
+        int8_tensor_core: "3958 TOPS (with sparsity)"
+      max_tdp: "Up to 700W (configurable)"
+      multi_instance_gpu: "Up to 7 MIGs @ 18GB each"
+      interconnect: "NVLink: 900 GB/s | PCIe Gen5: 128 GB/s"
+      server_options: "HGX H200 partner/NVIDIA-Certified Systems, 4 or 8 GPUs"
+      confidential_computing: "Supported"
+    nvl:
+      form_factor: "PCIe, dual-slot, air-cooled"
+      gpu_memory:
+        capacity: "141 GB HBM3e"
+        bandwidth: "4.8 TB/s"
+      compute:
+        fp64: "30 TFLOPS"
+        fp64_tensor_core: "60 TFLOPS"
+        fp32: "60 TFLOPS"
+        tf32_tensor_core: "835 TFLOPS (with sparsity)"
+        bf16_tensor_core: "1671 TFLOPS (with sparsity)"
+        fp16_tensor_core: "1671 TFLOPS (with sparsity)"
+        fp8_tensor_core: "3341 TFLOPS (with sparsity)"
+        int8_tensor_core: "3341 TOPS (with sparsity)"
+      max_tdp: "Up to 600W (configurable)"
+      multi_instance_gpu: "Up to 7 MIGs @ 16.5GB each"
+      interconnect: "2- or 4-way NVLink bridge: 900 GB/s per GPU | PCIe Gen5: 128 GB/s"
+      server_options: "MGX H200 NVL partner/NVIDIA-Certified Systems, up to 8 GPUs"
+      confidential_computing: "Supported"
+  decoders: "7 NVDEC, 7 NVJPEG"
+  note: "First GPU with HBM3e memory; preliminary specs, subject to change"
+
+gb200_nvl72:
+  name: "NVIDIA GB200 NVL72"
+  architecture: "Blackwell (rack-scale, Grace Blackwell)"
+  source: "https://www.nvidia.com/en-us/data-center/gb200-nvl72/#specs"
+  configuration: "36 Grace CPUs + 72 Blackwell GPUs (liquid-cooled rack)"
+  cooling: "Fully liquid-cooled"
+  compute_rack_level:
+    nvfp4_tensor_core: "1440 PFLOPS (sparse) | 720 PFLOPS (dense)"
+    fp8_fp6_tensor_core: "720 PFLOPS"
+    int8_tensor_core: "720 POPS"
+    fp16_bf16_tensor_core: "360 PFLOPS"
+    tf32_tensor_core: "180 PFLOPS"
+    fp32: "5760 TFLOPS"
+    fp64_and_fp64_tensor_core: "2880 TFLOPS"
+  gpu_memory:
+    capacity: "13.4 TB HBM3E"
+    bandwidth: "576 TB/s"
+  nvlink_bandwidth: "130 TB/s (72-GPU NVLink domain)"
+  cpu:
+    core_count: "2592 Arm Neoverse V2 cores"
+    memory: "17 TB LPDDR5X"
+    memory_bandwidth: "14 TB/s"
+  superchip_module:
+    name: "GB200 Grace Blackwell Superchip"
+    configuration: "1 Grace CPU + 2 Blackwell GPUs"
+    nvfp4_tensor_core: "40 PFLOPS (sparse) | 20 PFLOPS (dense)"
+    fp8_fp6_tensor_core: "20 PFLOPS"
+    int8_tensor_core: "20 POPS"
+    fp16_bf16_tensor_core: "10 PFLOPS"
+    tf32_tensor_core: "5 PFLOPS"
+    fp32: "160 TFLOPS"
+    fp64_and_fp64_tensor_core: "80 TFLOPS"
+    gpu_memory: "372 GB HBM3E, 16 TB/s"
+    nvlink_bandwidth: "3.6 TB/s"
+    cpu_core_count: "72 Arm Neoverse V2 cores"
+    cpu_memory: "Up to 480 GB LPDDR5X, up to 512 GB/s"
+  also_available: "GB200 NVL4 (2 Grace CPU + 4 Blackwell GPU bridge module for MGX servers)"
+
+gb300_nvl72:
+  name: "NVIDIA GB300 NVL72"
+  architecture: "Blackwell Ultra (rack-scale, Grace Blackwell Ultra)"
+  source: "https://www.nvidia.com/en-us/data-center/gb300-nvl72/#specs"
+  configuration: "72 Blackwell Ultra GPUs + 36 Arm-based Grace CPUs"
+  cooling: "Fully liquid-cooled"
+  compute_rack_level:
+    fp4_tensor_core: "1440 PFLOPS (sparse) | 1080 PFLOPS (without sparsity)"
+    fp8_fp6_tensor_core: "720 PFLOPS"
+    int8_tensor_core: "24 POPS"
+    fp16_bf16_tensor_core: "360 PFLOPS"
+    tf32_tensor_core: "180 PFLOPS"
+    fp32: "6 PFLOPS"
+    fp64_and_fp64_tensor_core: "100 TFLOPS"
+  fast_memory: "37 TB"
+  gpu_memory:
+    capacity: "20 TB"
+    bandwidth: "Up to 576 TB/s"
+  nvlink_bandwidth: "130 TB/s"
+  cpu:
+    core_count: "2592 Arm Neoverse V2 cores"
+    memory: "17 TB LPDDR5X"
+    memory_bandwidth: "14 TB/s"
+  networking: "NVIDIA Quantum-X800 InfiniBand or Spectrum-X Ethernet, ConnectX-8 SuperNICs (800 Gb/s per GPU)"
+  performance_deltas_vs_blackwell: "1.5x dense FP4 FLOPS, 2x attention performance"
+  target_workload: "Test-time scaling inference and AI reasoning"
+
+hgx_b200_b300:
+  name: "NVIDIA HGX B200 / B300"
+  architecture: "Blackwell / Blackwell Ultra"
+  source: "https://www.nvidia.com/en-us/data-center/hgx/#specifications"
+  form_factor: "8x GPU SXM baseboard"
+  hgx_b200:
+    gpu: "8x NVIDIA Blackwell SXM"
+    fp4_tensor_core: "144 PFLOPS (sparse) | 72 PFLOPS (dense)"
+    fp8_fp6_tensor_core: "72 PFLOPS"
+    int8_tensor_core: "72 POPS"
+    fp16_bf16_tensor_core: "36 PFLOPS"
+    tf32_tensor_core: "18 PFLOPS"
+    fp32: "600 TFLOPS"
+    fp64_and_fp64_tensor_core: "296 TFLOPS"
+    total_memory: "1.4 TB"
+    nvlink_generation: "5th generation"
+    nvlink_gpu_to_gpu_bandwidth: "1.8 TB/s"
+    total_nvlink_bandwidth: "14.4 TB/s"
+    networking_bandwidth: "0.8 TB/s"
+    attention_performance_relative: "1x"
+    status: "Shipping"
+  hgx_b300:
+    gpu: "8x NVIDIA Blackwell Ultra SXM"
+    fp4_tensor_core: "144 PFLOPS (sparse) | 108 PFLOPS (dense)"
+    fp8_fp6_tensor_core: "72 PFLOPS"
+    int8_tensor_core: "3 POPS"
+    fp16_bf16_tensor_core: "36 PFLOPS"
+    tf32_tensor_core: "18 PFLOPS"
+    fp32: "600 TFLOPS"
+    fp64_and_fp64_tensor_core: "10 TFLOPS"
+    total_memory: "2.1 TB"
+    nvlink_generation: "5th generation"
+    nvlink_gpu_to_gpu_bandwidth: "1.8 TB/s"
+    total_nvlink_bandwidth: "14.4 TB/s"
+    networking_bandwidth: "1.6 TB/s"
+    attention_performance_relative: "2x (vs. Blackwell)"
+    status: "Shipping"
+
+blackwell_architecture:
+  name: "NVIDIA Blackwell Architecture"
+  source: "https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/"
+  process_node: "Custom-built TSMC 4NP"
+  transistor_count: "208 billion"
+  die_configuration: "Two reticle-limited dies connected by 10 TB/s chip-to-chip interconnect, unified as single GPU"
+  transformer_engine: "2nd generation, adds FP4 microscaling (NVFP4) precision support"
+  blackwell_ultra_vs_blackwell:
+    attention_layer_acceleration: "2x"
+    ai_compute_flops: "1.5x more"
+  nvlink:
+    generation: "5th generation"
+    max_gpus_scaled: "576 GPUs"
+    nvlink_switch_bandwidth: "130 TB/s in a 72-GPU NVLink domain (NVL72)"
+    multi_server_interconnect: "1.8 TB/s"
+    nvl72_throughput_advantage: "9x GPU throughput vs single 8-GPU system"
+  security: "NVIDIA Confidential Computing; first TEE-I/O capable GPU in industry"
+  decompression_engine:
+    grace_cpu_link_bandwidth: "900 GB/s bidirectional"
+    supported_formats: ["LZ4", "Snappy", "Deflate"]
+  ras_engine: "Dedicated Reliability, Availability, and Serviceability engine for predictive fault detection"
+  key_products:
+    - "GB300 NVL72"
+    - "GB200 NVL72"
+    - "GB200 NVL4"
+    - "HGX B300"
+    - "DGX SuperPOD"
+    - "RTX PRO in Data Center"
+    - "RTX PRO Workstations"
+    - "DGX Station"
+    - "DGX Spark (GB10 Grace Blackwell Superchip)"

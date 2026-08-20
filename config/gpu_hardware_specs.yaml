@@ -13,18 +13,25 @@
 #
 # Fields (any may be null when a source genuinely doesn't have the number --
 # never guessed):
-#   memory_gb_per_gpu     - nameplate VRAM per GPU, decimal GB, from doc 04
-#                            section 3's own "Memory/GPU" pricing column.
-#   memory_bandwidth_gbps - GB/s, from NVIDIA's own spec pages (verified live
-#                            2026-08-19) or doc 01/04's own already-cited
-#                            figures -- see gpu_reference.py's prior history
-#                            for the exact sourcing per family.
-#   nvlink_generation     - e.g. "NVLink3"/"NVLink4"/"NVLink5", null if the
-#                            family has no NVLink at all (e.g. g6e/g7e).
+#   memory_gb_per_gpu     - nameplate VRAM per GPU, decimal GB.
+#   memory_bandwidth_gbps - GB/s, from NVIDIA's own spec pages.
+#   nvlink_generation     - e.g. "NVLink3"/"NVLink4"/"NVLink5", null if no NVLink.
 #   nvlink_bandwidth_gbps - GB/s, null under the same conditions.
+#   fp32_tflops           - FP32 dense performance, TFLOPS.
+#   fp64_tflops           - FP64 dense performance, TFLOPS.
+#   tf32_tflops           - TF32 dense Tensor Core performance, TFLOPS.
+#   bf16_tflops           - BF16 dense Tensor Core performance, TFLOPS.
+#   fp16_tflops           - FP16 dense Tensor Core performance, TFLOPS.
+#   fp8_tflops            - FP8 dense Tensor Core performance, TFLOPS.
+#   fp4_tflops            - FP4 dense Tensor Core performance, TFLOPS.
+#   int8_tops             - INT8 dense Tensor Core performance, TOPS.
 #
-# Used by: gpu_reference.py (fixed path, loaded internally -- these two
-# fields were never CLI-configurable before this move either) and
+# Tensor Core figures sourced from live NVIDIA spec pages (2026-08-20).
+# B200/B300/GB200/GB300 per-GPU Tensor Core figures derived from system-level
+# spec tables (HGX or NVL72) divided by GPU count, per the source pages.
+# "Dense" means without sparsity; sparse is typically 2x where applicable.
+#
+# Used by: gpu_reference.py (fixed path, loaded internally) and
 # model_instance_fit.py (loaded once in cli.py's `compare` via
 # --gpu-specs-config, passed through explicitly as part of ComparisonDataset).
 #
@@ -47,57 +54,151 @@ g6e: # L40S
   memory_bandwidth_gbps: 864.0
   nvlink_generation: null
   nvlink_bandwidth_gbps: null
+  fp32_tflops: 91.6
+  fp64_tflops: null
+  tf32_tflops: 183.0
+  bf16_tflops: 362.05
+  fp16_tflops: 362.05
+  fp8_tflops: 733.0
+  fp4_tflops: null
+  int8_tops: 733.0
 
 g7e: # RTX PRO 6000 Blackwell Server Edition
   memory_gb_per_gpu: 96.0
   memory_bandwidth_gbps: 1597.0
   nvlink_generation: null
   nvlink_bandwidth_gbps: null
+  fp32_tflops: 120.0
+  fp64_tflops: null
+  tf32_tflops: 234.0
+  bf16_tflops: 1000.0
+  fp16_tflops: 1000.0
+  fp8_tflops: 2000.0
+  fp4_tflops: 4000.0
+  int8_tops: null
 
 p4d: # A100 40GB -- NVIDIA's current spec page no longer lists this variant's bandwidth
   memory_gb_per_gpu: 40.0
   memory_bandwidth_gbps: null
   nvlink_generation: NVLink3
   nvlink_bandwidth_gbps: 600.0
+  fp32_tflops: 19.5
+  fp64_tflops: 19.5
+  tf32_tflops: 312.0
+  bf16_tflops: 624.0
+  fp16_tflops: 624.0
+  fp8_tflops: null
+  fp4_tflops: null
+  int8_tops: 1248.0
 
 p4de: # A100 80GB
   memory_gb_per_gpu: 80.0
   memory_bandwidth_gbps: 2039.0
   nvlink_generation: NVLink3
   nvlink_bandwidth_gbps: 600.0
+  fp32_tflops: 19.5
+  fp64_tflops: 19.5
+  tf32_tflops: 312.0
+  bf16_tflops: 624.0
+  fp16_tflops: 624.0
+  fp8_tflops: null
+  fp4_tflops: null
+  int8_tops: 1248.0
 
 p5: # H100
   memory_gb_per_gpu: 80.0
   memory_bandwidth_gbps: 3350.0
   nvlink_generation: NVLink4
   nvlink_bandwidth_gbps: 900.0
+  fp32_tflops: 67.0
+  fp64_tflops: 34.0
+  tf32_tflops: 989.0
+  bf16_tflops: 1979.0
+  fp16_tflops: 1979.0
+  fp8_tflops: 3958.0
+  fp4_tflops: null
+  int8_tops: 3958.0
 
 p5e: # H200, pricing unverified per doc 04
   memory_gb_per_gpu: 141.0
   memory_bandwidth_gbps: 4800.0
   nvlink_generation: NVLink4
   nvlink_bandwidth_gbps: 900.0
+  fp32_tflops: 67.0
+  fp64_tflops: 34.0
+  tf32_tflops: 989.0
+  bf16_tflops: 1979.0
+  fp16_tflops: 1979.0
+  fp8_tflops: 3958.0
+  fp4_tflops: null
+  int8_tops: 3958.0
 
 p5en: # H200
   memory_gb_per_gpu: 141.0
   memory_bandwidth_gbps: 4800.0
   nvlink_generation: NVLink4
   nvlink_bandwidth_gbps: 900.0
+  fp32_tflops: 67.0
+  fp64_tflops: 34.0
+  tf32_tflops: 989.0
+  bf16_tflops: 1979.0
+  fp16_tflops: 1979.0
+  fp8_tflops: 3958.0
+  fp4_tflops: null
+  int8_tops: 3958.0
 
-p6-b200: # B200 -- no standalone NVIDIA spec page exists (doc 03 section 0); bandwidth left null
-  memory_gb_per_gpu: 179.0
+p6-b200: # B200 -- HGX page: 1.4 TB total / 8 GPUs; no per-GPU bandwidth listed
+  memory_gb_per_gpu: 175.0
   memory_bandwidth_gbps: null
   nvlink_generation: NVLink5
   nvlink_bandwidth_gbps: 1800.0
+  fp32_tflops: 75.0
+  fp64_tflops: 37.0
+  tf32_tflops: 2250.0
+  bf16_tflops: 4500.0
+  fp16_tflops: 4500.0
+  fp8_tflops: 9000.0
+  fp4_tflops: 9000.0
+  int8_tops: 9000.0
 
-p6-b300: # B300 -- same caveat as B200
-  memory_gb_per_gpu: 268.0
+p6-b300: # B300 -- HGX page: 2.1 TB total / 8 GPUs; no per-GPU bandwidth listed
+  memory_gb_per_gpu: 263.0
   memory_bandwidth_gbps: null
   nvlink_generation: NVLink5
   nvlink_bandwidth_gbps: 1800.0
+  fp32_tflops: 75.0
+  fp64_tflops: 1.25
+  tf32_tflops: 2250.0
+  bf16_tflops: 4500.0
+  fp16_tflops: 4500.0
+  fp8_tflops: 9000.0
+  fp4_tflops: 13500.0
+  int8_tops: 375.0
 
-p6e-gb200: # GB200 UltraServer -- doc 04 section 3's own figure; UltraServer-only, yields zero SKUs today
+p6e-gb200: # GB200 NVL72 -- NVL72 page: 13.4 TB HBM3E / 72 GPUs; per-GPU bandwidth not listed
   memory_gb_per_gpu: 185.0
   memory_bandwidth_gbps: null
   nvlink_generation: NVLink5
   nvlink_bandwidth_gbps: null
+  fp32_tflops: 80.0
+  fp64_tflops: 40.0
+  tf32_tflops: 2500.0
+  bf16_tflops: 5000.0
+  fp16_tflops: 5000.0
+  fp8_tflops: 10000.0
+  fp4_tflops: 10000.0
+  int8_tops: 10000.0
+
+p6e-gb300: # GB300 NVL72 -- NVL72 page: 20 TB HBM3E / 72 GPUs; per-GPU bandwidth not listed
+  memory_gb_per_gpu: 278.0
+  memory_bandwidth_gbps: null
+  nvlink_generation: NVLink5
+  nvlink_bandwidth_gbps: null
+  fp32_tflops: 83.33
+  fp64_tflops: 1.39
+  tf32_tflops: 2500.0
+  bf16_tflops: 5000.0
+  fp16_tflops: 5000.0
+  fp8_tflops: 10000.0
+  fp4_tflops: 15000.0
+  int8_tops: 333.33
