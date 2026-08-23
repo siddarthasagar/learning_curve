@@ -7,7 +7,14 @@ query return identical data, so ``save_snapshot`` skips writing a new
 timestamped file when the content matches the last one (only ``-latest.json``
 exists to diff against, no dated file), and keeps only the most recent
 ``keep`` timestamped snapshots per name so re-running this regularly doesn't
-pile up an ever-growing pile of near-duplicate files in ``dump/``.
+pile up an ever-growing pile of near-duplicate files.
+
+Dated history files live under ``<out_dir>/backup/`` — 2026-08-22, user
+request: keep ``dump/``'s root focused on the current answer
+(``<name>-latest.json``), not cluttered with timestamped history. Only the
+dated files move; ``<name>-latest.json`` itself still lives directly in
+``out_dir``, so every caller that reads it (``load_latest_snapshot()``, every
+CLI subcommand's diff-against-last-run check) needed no changes at all.
 """
 
 from __future__ import annotations
@@ -50,8 +57,9 @@ def save_snapshot(
     changed. Otherwise writes a new dated file and prunes older dated
     snapshots for this ``name`` down to the ``keep`` most recent.
 
-    Returns the path written: the new timestamped snapshot, or the existing
-    ``<name>-latest.json`` when the content was unchanged.
+    Returns the path written: the new timestamped snapshot (under
+    ``<out_dir>/backup/``), or the existing ``<out_dir>/<name>-latest.json``
+    when the content was unchanged.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = to_jsonable(data)
@@ -61,20 +69,19 @@ def save_snapshot(
     if latest_path.exists() and latest_path.read_text() == serialized:
         return latest_path
 
+    backup_dir = out_dir / "backup"
+    backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime(_TIMESTAMP_FORMAT)
-    snapshot_path = out_dir / f"{name}-{timestamp}.json"
+    snapshot_path = backup_dir / f"{name}-{timestamp}.json"
     snapshot_path.write_text(serialized)
     latest_path.write_text(serialized)
 
-    _prune_old_snapshots(name, out_dir, keep=keep)
+    _prune_old_snapshots(name, backup_dir, keep=keep)
     return snapshot_path
 
 
-def _prune_old_snapshots(name: str, out_dir: Path, *, keep: int) -> None:
-    latest_name = f"{name}-latest.json"
-    dated_snapshots = sorted(
-        path for path in out_dir.glob(f"{name}-*.json") if path.name != latest_name
-    )
+def _prune_old_snapshots(name: str, backup_dir: Path, *, keep: int) -> None:
+    dated_snapshots = sorted(backup_dir.glob(f"{name}-*.json"))
     stale = dated_snapshots[:-keep] if keep > 0 else dated_snapshots
     for path in stale:
         path.unlink()

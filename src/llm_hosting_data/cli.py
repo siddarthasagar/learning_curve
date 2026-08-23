@@ -32,10 +32,14 @@ from llm_hosting_data.hf_models import (
 )
 from llm_hosting_data.model_instance_fit import (
     CandidateComparison,
+    CapacityFit,
     ComparisonDataset,
     InstanceCandidateFit,
+    KernelCompatibleFit,
     build_baseline_comparisons,
+    build_capacity_pass,
     build_instance_reports,
+    build_kernel_filter_pass,
     discover_candidate_slugs,
 )
 from llm_hosting_data.openrouter_benchmarks import (
@@ -474,6 +478,155 @@ def _resolve_compare_inputs(
     return model_sizes, comparison_targets, kernel_matrix, gpu_hardware_specs
 
 
+def _render_capacity_pass_markdown(pass1: dict[str, list[CapacityFit]]) -> str:
+    lines = [
+        "# Rank pipeline — pass 1: raw GPU-memory capacity fit",
+        "",
+        (
+            "Every candidate-pool checkpoint that fits an instance by GPU memory "
+            "alone (tight or best tier) — no kernel/quantization-support check "
+            "yet, that's pass 2."
+        ),
+        "",
+    ]
+    for instance_type, fits in pass1.items():
+        lines.append(f"## {instance_type}")
+        if not fits:
+            lines.append("- no candidate-pool checkpoint fits")
+        lines.extend(
+            f"- [{fit.fit_tier}] `{fit.repo_id}` ({fit.total_gib:.2f} GiB)"
+            for fit in fits
+        )
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _render_kernel_filter_pass_markdown(
+    pass2: dict[str, list[KernelCompatibleFit]],
+) -> str:
+    lines = [
+        "# Rank pipeline — pass 2: kernel/quantization-support filter",
+        "",
+        (
+            "Pass 1 survivors whose quantization format is not `blocked` on "
+            "that instance's GPU architecture (config/kernel_support_matrix.yaml). "
+            "Pass 3 (rank survivors by benchmark score) is deliberately not "
+            "run yet — held off pending active-parameter data, see the "
+            "tracking doc §6."
+        ),
+        "",
+    ]
+    for instance_type, fits in pass2.items():
+        lines.append(f"## {instance_type}")
+        if not fits:
+            lines.append("- no pass-1 survivor has working kernel support here")
+        lines.extend(
+            f"- [{fit.fit_tier}] `{fit.repo_id}` ({fit.total_gib:.2f} GiB)"
+            f"{_kernel_caveat(fit.kernel_support)}"
+            for fit in fits
+        )
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _run_rank(args: argparse.Namespace) -> int:
+    """3-pass iterative model<->instance ranking pipeline (2026-08-22, user request).
+
+    Pass 1: raw GPU-memory capacity filter (tight/best tier) per instance.
+    Pass 2: pass-1 survivors filtered by kernel/quantization support
+    (excludes ``"blocked"`` combinations). Pass 3 (rank survivors by
+    benchmark score) is deliberately not built yet — held off per the
+    2026-08-22 decision, rather than shipping a ranking that only ever
+    answers doc `04`'s "Smartest" category and silently skips "Fastest
+    decode"/"Best overall" (both need active-parameter data this pipeline
+    doesn't have yet, tracking doc §6 gap 2).
+
+    Each pass writes its own JSON snapshot (``dump/``, via
+    ``save_snapshot()`` — dated history + a ``-latest.json`` pointer) and
+    Markdown report (``dump/reports/``) — separate files per pass, never
+    overwriting an earlier pass's output.
+    """
+    aws_args = argparse.Namespace(
+        region=args.region,
+        instance_types=None,
+        family=None,
+        config=args.aws_config,
+        refresh=args.refresh,
+    )
+    aws_targets = _resolve_aws_targets(aws_args)
+    if aws_targets is None:
+        return 1
+    instance_types, families = aws_targets
+    try:
+        instances = fetch_combined_pricing(
+            instance_types,
+            families=families,
+            region=args.region,
+            force_refresh=args.refresh,
+        )
+    except PricingFetchError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    model_sizes = _resolve_model_sizes(
+        args.hf_config,
+        token=args.hf_token,
+        force_refresh=args.refresh,
+    )
+    if model_sizes is None:
+        return 1
+    kernel_matrix = _load_config_or_report(
+        load_kernel_support_matrix,
+        args.kernel_config,
+    )
+    if kernel_matrix is None:
+        return 1
+    gpu_hardware_specs = _load_config_or_report(
+        load_gpu_hardware_specs,
+        args.gpu_specs_config,
+    )
+    if gpu_hardware_specs is None:
+        return 1
+
+    reports_dir = DUMP_DIR / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    print("=== Pass 1: raw GPU-memory capacity fit ===")
+    pass1 = build_capacity_pass(
+        model_sizes=model_sizes,
+        instances=instances,
+        gpu_hardware_specs=gpu_hardware_specs,
+    )
+    pass1_markdown = _render_capacity_pass_markdown(pass1)
+    print(pass1_markdown)
+    save_snapshot("rank-pass1-capacity", pass1, DUMP_DIR)
+    (reports_dir / "rank-pass1-capacity.md").write_text(pass1_markdown)
+    print(
+        f"Written to {DUMP_DIR / 'rank-pass1-capacity-latest.json'} and dump/reports/rank-pass1-capacity.md",
+    )
+
+    print("\n=== Pass 2: kernel/quantization-support filter ===")
+    pass2 = build_kernel_filter_pass(
+        pass1,
+        instances=instances,
+        kernel_matrix=kernel_matrix,
+    )
+    pass2_markdown = _render_kernel_filter_pass_markdown(pass2)
+    print(pass2_markdown)
+    save_snapshot("rank-pass2-kernel-filtered", pass2, DUMP_DIR)
+    (reports_dir / "rank-pass2-kernel-filtered.md").write_text(pass2_markdown)
+    print(
+        f"Written to {DUMP_DIR / 'rank-pass2-kernel-filtered-latest.json'} "
+        "and dump/reports/rank-pass2-kernel-filtered.md",
+    )
+
+    print(
+        "\nPass 3 (rank survivors by metric) not run — held off "
+        "2026-08-22 pending active-parameter data (tracking doc §6 gap 2).",
+    )
+    return 0
+
+
 def _run_compare(args: argparse.Namespace) -> int:
     """Model<->instance fit + baseline comparison report (see model_instance_fit.py).
 
@@ -873,6 +1026,50 @@ def _add_compare_subparser(subparsers: _SubParsers) -> None:
     compare_parser.set_defaults(handler=_run_compare)
 
 
+def _add_rank_subparser(subparsers: _SubParsers) -> None:
+    rank_parser = subparsers.add_parser(
+        "rank",
+        help=(
+            "3-pass model<->instance ranking pipeline: capacity filter, then "
+            "kernel-support filter, per instance (pass 3 ranking not yet built)."
+        ),
+    )
+    rank_parser.add_argument("--region", default="us-east-1")
+    rank_parser.add_argument(
+        "--aws-config",
+        type=Path,
+        default=Path("config/aws_instances.yaml"),
+    )
+    rank_parser.add_argument(
+        "--hf-config",
+        type=Path,
+        default=Path("config/hf_models.yaml"),
+    )
+    rank_parser.add_argument(
+        "--kernel-config",
+        type=Path,
+        default=Path("config/kernel_support_matrix.yaml"),
+        help="SM x format kernel-support matrix, see the file's own comments.",
+    )
+    rank_parser.add_argument(
+        "--gpu-specs-config",
+        type=Path,
+        default=Path("config/gpu_hardware_specs.yaml"),
+        help="Per-family GPU memory/bandwidth/NVLink specs, see the file's own comments.",
+    )
+    rank_parser.add_argument(
+        "--hf-token",
+        default=None,
+        help="HuggingFace access token.",
+    )
+    rank_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Bypass every local cache (AWS offer files, Vantage, HF sizes).",
+    )
+    rank_parser.set_defaults(handler=_run_rank)
+
+
 def _add_quant_registry_subparser(subparsers: _SubParsers) -> None:
     registry_parser = subparsers.add_parser(
         "quant-registry",
@@ -908,6 +1105,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_benchmarks_subparser(subparsers)
     _add_pipeline_subparser(subparsers)
     _add_compare_subparser(subparsers)
+    _add_rank_subparser(subparsers)
     _add_quant_registry_subparser(subparsers)
 
     return parser

@@ -7,53 +7,105 @@
 # Externalized as data rather than a Python constant (2026-08-19, user
 # request, following the same pattern as config/kernel_support_matrix.yaml):
 # these are physical hardware facts, fixed once a card ships -- unlike
-# kernel/software support they are not expected to need an automated update
-# pipeline, but keeping them here still makes them easy to re-check/correct
-# by hand without touching code.
+# kernel/software support (config/kernel_support_matrix.yaml) they need no
+# live source or update pipeline. A static, source-cited list is the
+# reliable answer here, not an API (2026-08-20, user request: "hardware
+# specs anyway are not going to change... if it's from nvidia's document
+# page there is no questioning the data").
+#
+# Enriched 2026-08-20 from config/nvidia_gpu_specs.yaml -- a separate,
+# GPU-model-keyed raw citation archive the user hand-gathered directly from
+# NVIDIA's own product pages (kept as-is; this file re-derives the clean,
+# per-AWS-family, unit-normalized numbers a human or the code can read
+# without re-parsing prose). Every entry below carries its own `source`.
+#
+# Tensor Core figures are included as direct *evidence* of native hardware
+# format support, not just performance trivia (2026-08-20, user's own
+# observation): a GPU with a published FP8 Tensor Core TFLOPS figure has
+# FP8 silicon; a GPU with no such figure on its own spec page doesn't (e.g.
+# A100 below has no fp8_tflops at all -- NVIDIA's page simply doesn't list
+# one, which independently corroborates doc 04 §5 fact 1, "A100 has no FP8
+# silicon"). `native_precision_support` makes that reading explicit per
+# entry, cross-checked against doc 04 §5's own "Native HW" row rather than
+# inferred from Tensor Core figures alone (some formats, e.g. INT4 Marlin,
+# are native without getting their own headline Tensor Core TFLOPS number).
 #
 # Fields (any may be null when a source genuinely doesn't have the number --
 # never guessed):
-#   memory_gb_per_gpu     - nameplate VRAM per GPU, decimal GB.
-#   memory_bandwidth_gbps - GB/s, from NVIDIA's own spec pages.
-#   nvlink_generation     - e.g. "NVLink3"/"NVLink4"/"NVLink5", null if no NVLink.
-#   nvlink_bandwidth_gbps - GB/s, null under the same conditions.
-#   fp32_tflops           - FP32 dense performance, TFLOPS.
-#   fp64_tflops           - FP64 dense performance, TFLOPS.
-#   tf32_tflops           - TF32 dense Tensor Core performance, TFLOPS.
-#   bf16_tflops           - BF16 dense Tensor Core performance, TFLOPS.
-#   fp16_tflops           - FP16 dense Tensor Core performance, TFLOPS.
-#   fp8_tflops            - FP8 dense Tensor Core performance, TFLOPS.
-#   fp4_tflops            - FP4 dense Tensor Core performance, TFLOPS.
-#   int8_tops             - INT8 dense Tensor Core performance, TOPS.
-#
-# Tensor Core figures sourced from live NVIDIA spec pages (2026-08-20).
-# B200/B300/GB200/GB300 per-GPU Tensor Core figures derived from system-level
-# spec tables (HGX or NVL72) divided by GPU count, per the source pages.
-# "Dense" means without sparsity; sparse is typically 2x where applicable.
+#   memory_gb_per_gpu       - nameplate VRAM per GPU, decimal GB.
+#   memory_bandwidth_gbps   - GB/s.
+#   nvlink_generation       - e.g. "NVLink3"/"NVLink4"/"NVLink5", null if no NVLink.
+#   nvlink_bandwidth_gbps   - GB/s, null under the same conditions.
+#   gpu_model               - NVIDIA's own product name.
+#   architecture            - e.g. "Ampere", "Hopper", "Blackwell".
+#   form_factor             - e.g. "SXM4", "PCIe", "SXM (8-GPU HGX baseboard)".
+#   tensor_core_generation  - null when NVIDIA's own page for *that specific
+#                             product* doesn't state it (see p4d/p4de below --
+#                             not invented from general knowledge).
+#   fp32_tflops / fp64_tflops / tf32_tflops / bf16_tflops / fp16_tflops /
+#     fp8_tflops / fp4_tflops / int8_tops
+#                             - dense Tensor Core performance (sparsity
+#                               roughly 2x where NVIDIA publishes it, not
+#                               separately recorded here). For the 8-GPU
+#                               HGX (B200/B300) and 2-GPU Superchip (GB200)
+#                               products, NVIDIA only publishes system-level
+#                               aggregate figures -- these are that aggregate
+#                               divided by GPU count, not an independently
+#                               published per-GPU number; see each entry's
+#                               comment.
+#   source                  - the exact NVIDIA page these numbers came from.
 #
 # Used by: gpu_reference.py (fixed path, loaded internally) and
 # model_instance_fit.py (loaded once in cli.py's `compare` via
 # --gpu-specs-config, passed through explicitly as part of ComparisonDataset).
+# Only the first four fields are actually read by code today -- the rest is
+# reference/documentation the pipeline doesn't yet consume.
 #
-# DECIDED (2026-08-20, was an open question 2026-08-19 -- now resolved):
-# memory_gb_per_gpu *is* mostly available live from AWS's own `gpuMemory`
-# attribute (already flows through as InstancePrice.gpu_memory, e.g. "640 GB
-# HBM2e"), and is confirmed buggy for p5en.48xlarge specifically (reports
-# one GPU's 141 GB, not the true 8x141=1128 GB total). A live-derived
-# alternative was considered (parse `gpu_memory`, strip the HBM-generation
-# suffix, multiply by `gpu` count, with a hardcoded p5en correction) but
-# rejected: hardware specs don't change once a card ships, so there's
-# nothing to gain from re-deriving this live every run, and NVIDIA's own
-# spec pages are unquestionable ground truth once cited directly -- user is
-# enriching/completing this field by hand straight from those pages, the
-# same sourcing memory_bandwidth_gbps/nvlink_* already use. Stays static,
-# by choice, not by limitation.
+# Every top-level key above this point is a live AWS instance *family* (the
+# same tokens family_of() produces from a real instance type, and the same
+# ones config/aws_instances.yaml tracks) -- that's what makes them
+# code-reachable at all. `gb300_nvl72` below is deliberately keyed
+# differently: it's real NVIDIA hardware (source-cited, same rigor as
+# everything else here) that AWS doesn't offer yet, so it can't take an AWS
+# family name without implying otherwise (2026-08-20, user: "keep
+# gb300_nvl72... this is from nvidia, just not on aws yet" -- an earlier
+# pass had added it as a fabricated "p6e-gb300" family and was reverted for
+# exactly that reason). Held in reserve, inert to the code (no AWS instance
+# type's family_of() will ever equal "gb300_nvl72"), ready to be re-keyed
+# under a real AWS family the day AWS ships one.
+
+gb300_nvl72: # GB300 NVL72 -- NOT an AWS instance family yet, see note above. Rack-scale: 72 Blackwell Ultra GPUs + 36 Grace CPUs, liquid-cooled
+  memory_gb_per_gpu: 277.78 # derived: rack's "20 TB" / 72 GPUs
+  memory_bandwidth_gbps: 8000.0 # derived: rack's "Up to 576 TB/s" / 72 GPUs -- NVIDIA's own figure is a ceiling ("Up to"), not a guaranteed sustained number
+  nvlink_generation: NVLink5
+  nvlink_bandwidth_gbps: 1805.6 # derived: rack's "130 TB/s (72-GPU NVLink domain)" / 72 -- matches the other Blackwell entries' 1800.0 to within rounding
+  gpu_model: "NVIDIA GB300 NVL72 (Blackwell Ultra)"
+  architecture: "Blackwell Ultra (rack-scale, Grace Blackwell Ultra)"
+  form_factor: "72-GPU NVL72 rack, fully liquid-cooled"
+  tensor_core_generation: "5th generation" # inferred, same Blackwell family as B200/B300/GB200
+  # NVIDIA's GB300 NVL72 page only publishes full-rack (72-GPU) aggregate
+  # compute figures, no per-superchip-module breakdown like GB200 had --
+  # these are the rack-level figure divided by 72.
+  fp32_tflops: 83.33 # 6 PFLOPS / 72
+  fp64_tflops: 1.39 # 100 TFLOPS / 72
+  tf32_tflops: 2500.0 # 180 PFLOPS / 72
+  bf16_tflops: 5000.0 # 360 PFLOPS / 72
+  fp16_tflops: 5000.0
+  fp8_tflops: 10000.0 # 720 PFLOPS / 72
+  fp4_tflops: 15000.0 # 1080 PFLOPS dense / 72 (1440 PFLOPS sparse / 72 = 20000)
+  int8_tops: 333.33 # 24 POPS / 72
+  native_precision_support: [BF16, FP8, FP4, INT8, INT4] # doc 04 §5 SM100 row (Blackwell family)
+  source: "https://www.nvidia.com/en-us/data-center/gb300-nvl72/#specs"
 
 g6e: # L40S
   memory_gb_per_gpu: 48.0
   memory_bandwidth_gbps: 864.0
   nvlink_generation: null
   nvlink_bandwidth_gbps: null
+  gpu_model: "NVIDIA L40S"
+  architecture: "Ada Lovelace"
+  form_factor: "PCIe, dual-slot, full-height full-length (FHFL)"
+  tensor_core_generation: "4th generation"
   fp32_tflops: 91.6
   fp64_tflops: null
   tf32_tflops: 183.0
@@ -62,82 +114,125 @@ g6e: # L40S
   fp8_tflops: 733.0
   fp4_tflops: null
   int8_tops: 733.0
+  native_precision_support: [BF16, FP8, INT8, INT4] # doc 04 §5 SM89 row; no FP4 -- no fp4_tflops published either, consistent
+  source: "https://www.nvidia.com/en-in/data-center/l40s/#specifications"
 
 g7e: # RTX PRO 6000 Blackwell Server Edition
   memory_gb_per_gpu: 96.0
   memory_bandwidth_gbps: 1597.0
   nvlink_generation: null
   nvlink_bandwidth_gbps: null
+  gpu_model: "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  architecture: "Blackwell (GB202)"
+  form_factor: "PCIe 5.0 x16, dual-slot, passive/fanless"
+  tensor_core_generation: "5th generation"
   fp32_tflops: 120.0
   fp64_tflops: null
-  tf32_tflops: 234.0
-  bf16_tflops: 1000.0
-  fp16_tflops: 1000.0
-  fp8_tflops: 2000.0
-  fp4_tflops: 4000.0
+  tf32_tflops: null # not published for this SKU
+  bf16_tflops: null # not published for this SKU
+  fp16_tflops: null # not published for this SKU
+  fp8_tflops: null # not published for this SKU -- only an aggregate "FP4 AI peak: 4 PFLOPS" figure exists
+  fp4_tflops: 4000.0 # "FP4 AI peak", may include sparsity -- NVIDIA's page doesn't separate dense/sparse here
   int8_tops: null
+  native_precision_support: [BF16, FP8, FP4] # doc 04 §5 SM120 row (INT8 is explicitly *blocked* on SM120 per doc 04, despite being common on other SMs)
+  source: "https://www.nvidia.com/en-in/data-center/rtx-pro-6000-blackwell-server-edition/#specs"
 
-p4d: # A100 40GB -- NVIDIA's current spec page no longer lists this variant's bandwidth
+p4d: # A100 40GB, SXM4 form factor (AWS p4d.24xlarge: 8-GPU, NVLink-connected)
+  # TODO (2026-08-20, flagged by user): NVIDIA's current A100 page lists
+  # sxm4_80gb / pcie_80gb / pcie_40gb variants, but no sxm4_40gb row --
+  # memory_bandwidth_gbps below is genuinely unconfirmed for this exact
+  # form factor. The PCIe-40GB figure (1555 GB/s) exists but is NOT reused
+  # here: SXM and PCIe A100s differ in bandwidth at the 80GB tier (2039 vs
+  # 1935 GB/s), so borrowing the PCIe number risks misrepresenting SXM4
+  # bandwidth. Left null until a source specific to SXM4 40GB is found.
   memory_gb_per_gpu: 40.0
   memory_bandwidth_gbps: null
   nvlink_generation: NVLink3
-  nvlink_bandwidth_gbps: 600.0
+  nvlink_bandwidth_gbps: 600.0 # SXM4 NVLink capability is a property of the module/interconnect, not memory size -- same as p4de
+  gpu_model: "NVIDIA A100"
+  architecture: "Ampere"
+  form_factor: "SXM4"
+  tensor_core_generation: null # not stated on NVIDIA's own A100 page (unlike L40S/H100/RTX PRO 6000, which do state it)
   fp32_tflops: 19.5
   fp64_tflops: 19.5
-  tf32_tflops: 312.0
-  bf16_tflops: 624.0
-  fp16_tflops: 624.0
-  fp8_tflops: null
+  tf32_tflops: 156.0
+  bf16_tflops: 312.0
+  fp16_tflops: 312.0
+  fp8_tflops: null # A100 has no FP8 silicon -- NVIDIA's page has no fp8 figure at all, doc 04 §5 fact 1
   fp4_tflops: null
-  int8_tops: 1248.0
+  int8_tops: 624.0
+  native_precision_support: [BF16, INT8, INT4] # doc 04 §5 SM80 row
+  source: "https://www.nvidia.com/en-us/data-center/a100/#specifications"
 
-p4de: # A100 80GB
+p4de: # A100 80GB, SXM4 form factor
   memory_gb_per_gpu: 80.0
   memory_bandwidth_gbps: 2039.0
   nvlink_generation: NVLink3
   nvlink_bandwidth_gbps: 600.0
+  gpu_model: "NVIDIA A100"
+  architecture: "Ampere"
+  form_factor: "SXM4"
+  tensor_core_generation: null # not stated on NVIDIA's own A100 page -- see p4d
   fp32_tflops: 19.5
   fp64_tflops: 19.5
-  tf32_tflops: 312.0
-  bf16_tflops: 624.0
-  fp16_tflops: 624.0
-  fp8_tflops: null
+  tf32_tflops: 156.0
+  bf16_tflops: 312.0
+  fp16_tflops: 312.0
+  fp8_tflops: null # A100 has no FP8 silicon, doc 04 §5 fact 1
   fp4_tflops: null
-  int8_tops: 1248.0
+  int8_tops: 624.0
+  native_precision_support: [BF16, INT8, INT4] # doc 04 §5 SM80 row
+  source: "https://www.nvidia.com/en-us/data-center/a100/#specifications"
 
-p5: # H100
+p5: # H100, SXM form factor
   memory_gb_per_gpu: 80.0
   memory_bandwidth_gbps: 3350.0
   nvlink_generation: NVLink4
   nvlink_bandwidth_gbps: 900.0
+  gpu_model: "NVIDIA H100"
+  architecture: "Hopper"
+  form_factor: "SXM"
+  tensor_core_generation: "4th generation"
   fp32_tflops: 67.0
   fp64_tflops: 34.0
-  tf32_tflops: 989.0
-  bf16_tflops: 1979.0
-  fp16_tflops: 1979.0
-  fp8_tflops: 3958.0
-  fp4_tflops: null
-  int8_tops: 3958.0
+  tf32_tflops: 989.0 # with sparsity; NVIDIA doesn't separately publish a dense TF32 figure for SXM
+  bf16_tflops: 1979.0 # with sparsity
+  fp16_tflops: 1979.0 # with sparsity
+  fp8_tflops: 3958.0 # with sparsity
+  fp4_tflops: null # Hopper has no FP4 silicon at all, doc 04 §5 fact 3
+  int8_tops: 3958.0 # with sparsity
+  native_precision_support: [BF16, FP8, INT8, INT4] # doc 04 §5 SM90 row
+  source: "https://www.nvidia.com/en-us/data-center/h100/#specifications"
 
-p5e: # H200, pricing unverified per doc 04
+p5e: # H200, SXM form factor -- doc 04 flags pricing as unverified
   memory_gb_per_gpu: 141.0
   memory_bandwidth_gbps: 4800.0
   nvlink_generation: NVLink4
   nvlink_bandwidth_gbps: 900.0
+  gpu_model: "NVIDIA H200"
+  architecture: "Hopper"
+  form_factor: "SXM"
+  tensor_core_generation: "4th generation" # inferred: same Hopper compute die as H100, whose own page states 4th-gen; not independently restated on H200's page
   fp32_tflops: 67.0
   fp64_tflops: 34.0
   tf32_tflops: 989.0
   bf16_tflops: 1979.0
   fp16_tflops: 1979.0
   fp8_tflops: 3958.0
-  fp4_tflops: null
+  fp4_tflops: null # Hopper has no FP4 silicon, doc 04 §5 fact 3
   int8_tops: 3958.0
+  native_precision_support: [BF16, FP8, INT8, INT4] # doc 04 §5 SM90 row
+  source: "https://www.nvidia.com/en-us/data-center/h200/#specifications"
 
-p5en: # H200
+p5en: # H200, SXM form factor
   memory_gb_per_gpu: 141.0
   memory_bandwidth_gbps: 4800.0
   nvlink_generation: NVLink4
   nvlink_bandwidth_gbps: 900.0
+  gpu_model: "NVIDIA H200"
+  architecture: "Hopper"
+  form_factor: "SXM"
+  tensor_core_generation: "4th generation" # inferred, see p5e
   fp32_tflops: 67.0
   fp64_tflops: 34.0
   tf32_tflops: 989.0
@@ -146,59 +241,78 @@ p5en: # H200
   fp8_tflops: 3958.0
   fp4_tflops: null
   int8_tops: 3958.0
+  native_precision_support: [BF16, FP8, INT8, INT4] # doc 04 §5 SM90 row
+  source: "https://www.nvidia.com/en-us/data-center/h200/#specifications"
 
-p6-b200: # B200 -- HGX page: 1.4 TB total / 8 GPUs; no per-GPU bandwidth listed
-  memory_gb_per_gpu: 175.0
-  memory_bandwidth_gbps: null
+p6-b200: # B200, part of an 8-GPU HGX B200 baseboard
+  memory_gb_per_gpu: 179.0 # doc 04 §3's own per-GPU figure -- more precise than NVIDIA's HGX page's rounded "1.4 TB / 8 GPUs" (~175 GB); independently confirmed exact 2026-08-20 via AWS's own EC2 P6 page (p6-b200.48xlarge: "1,432 HBM3e" / 8 GPUs = 179.0)
+  memory_bandwidth_gbps: null # no standalone per-GPU HBM bandwidth published anywhere found (doc 03 §0; HGX page only gives NVLink figures)
   nvlink_generation: NVLink5
-  nvlink_bandwidth_gbps: 1800.0
-  fp32_tflops: 75.0
-  fp64_tflops: 37.0
-  tf32_tflops: 2250.0
-  bf16_tflops: 4500.0
+  nvlink_bandwidth_gbps: 1800.0 # confirmed directly: HGX page's "nvlink_gpu_to_gpu_bandwidth: 1.8 TB/s" per GPU
+  gpu_model: "NVIDIA B200"
+  architecture: "Blackwell"
+  form_factor: "SXM (8-GPU HGX baseboard)"
+  tensor_core_generation: "5th generation" # inferred: same Blackwell architecture as RTX PRO 6000, whose page states 5th-gen; not independently restated on the HGX page
+  # NVIDIA's HGX page only publishes 8-GPU board-level aggregate compute
+  # figures, not per-GPU -- these are that aggregate divided by 8, not an
+  # independently published per-GPU number.
+  fp32_tflops: 75.0 # 600 TFLOPS / 8
+  fp64_tflops: 37.0 # 296 TFLOPS / 8
+  tf32_tflops: 2250.0 # 18 PFLOPS / 8, with sparsity
+  bf16_tflops: 4500.0 # 36 PFLOPS / 8, with sparsity
   fp16_tflops: 4500.0
-  fp8_tflops: 9000.0
-  fp4_tflops: 9000.0
-  int8_tops: 9000.0
+  fp8_tflops: 9000.0 # 72 PFLOPS / 8, with sparsity
+  fp4_tflops: 9000.0 # 72 PFLOPS dense / 8 (144 PFLOPS sparse / 8 = 18000)
+  int8_tops: 9000.0 # 72 POPS / 8
+  native_precision_support: [BF16, FP8, FP4, INT8, INT4] # doc 04 §5 SM100 row
+  source: "https://www.nvidia.com/en-us/data-center/hgx/#specifications"
+  aws_ec2_source: "https://aws.amazon.com/ec2/instance-types/p6/" # cross-check for memory_gb_per_gpu only -- no GPU bandwidth data
 
-p6-b300: # B300 -- HGX page: 2.1 TB total / 8 GPUs; no per-GPU bandwidth listed
-  memory_gb_per_gpu: 263.0
-  memory_bandwidth_gbps: null
+p6-b300: # B300 (Blackwell Ultra), part of an 8-GPU HGX B300 baseboard
+  memory_gb_per_gpu: 268.0 # doc 04 §3's own per-GPU figure -- more precise than NVIDIA's HGX page's rounded "2.1 TB / 8 GPUs" (~263 GB); independently confirmed exact 2026-08-20 via AWS's own EC2 P6 page (p6-b300.48xlarge: "2,144 HBM3e" / 8 GPUs = 268.0)
+  memory_bandwidth_gbps: null # same as B200 -- no standalone per-GPU HBM bandwidth published
   nvlink_generation: NVLink5
-  nvlink_bandwidth_gbps: 1800.0
-  fp32_tflops: 75.0
-  fp64_tflops: 1.25
-  tf32_tflops: 2250.0
-  bf16_tflops: 4500.0
+  nvlink_bandwidth_gbps: 1800.0 # confirmed directly: HGX page's "nvlink_gpu_to_gpu_bandwidth: 1.8 TB/s" per GPU
+  gpu_model: "NVIDIA B300"
+  architecture: "Blackwell Ultra"
+  form_factor: "SXM (8-GPU HGX baseboard)"
+  tensor_core_generation: "5th generation" # inferred, see p6-b200
+  # Same 8-GPU-aggregate-divided-by-8 caveat as p6-b200. B300's own INT8
+  # figure (3 POPS board-level) is notably lower than B200's (72 POPS) on
+  # NVIDIA's own HGX page -- quoted as published, not corrected, but worth
+  # independently verifying if INT8 throughput on B300 ever matters here.
+  fp32_tflops: 75.0 # 600 TFLOPS / 8
+  fp64_tflops: 1.25 # 10 TFLOPS / 8
+  tf32_tflops: 2250.0 # 18 PFLOPS / 8
+  bf16_tflops: 4500.0 # 36 PFLOPS / 8
   fp16_tflops: 4500.0
-  fp8_tflops: 9000.0
-  fp4_tflops: 13500.0
-  int8_tops: 375.0
+  fp8_tflops: 9000.0 # 72 PFLOPS / 8
+  fp4_tflops: 13500.0 # 108 PFLOPS dense / 8 (144 PFLOPS sparse / 8 = 18000)
+  int8_tops: 375.0 # 3 POPS / 8 -- see caveat above
+  native_precision_support: [BF16, FP8, FP4, INT8, INT4] # doc 04 §5 SM100 row
+  source: "https://www.nvidia.com/en-us/data-center/hgx/#specifications"
+  aws_ec2_source: "https://aws.amazon.com/ec2/instance-types/p6/" # cross-check for memory_gb_per_gpu only -- no GPU bandwidth data
 
-p6e-gb200: # GB200 NVL72 -- NVL72 page: 13.4 TB HBM3E / 72 GPUs; per-GPU bandwidth not listed
-  memory_gb_per_gpu: 185.0
-  memory_bandwidth_gbps: null
+p6e-gb200: # GB200 -- 2-GPU Grace Blackwell Superchip module, within a 72-GPU NVL72 rack; UltraServer-only, yields zero SKUs today per config/aws_instances.yaml
+  memory_gb_per_gpu: 185.0 # doc 04 §3's own per-GPU figure -- close to but not overridden by NVL72 page's "372 GB / 2 GPUs" (186 GB); independently confirmed exact 2026-08-20 via AWS's own EC2 P6 page (p6e-gb200.36xlarge: "740 HBM3e" / 4 GPUs = 185.0 -- note this specific EC2 instance size bundles 4 GPUs, not the 2-GPU Superchip module the rest of this entry's figures are derived from; per-GPU numbers are unaffected either way, same underlying die)
+  memory_bandwidth_gbps: 8000.0 # derived: superchip module's "16 TB/s" total / 2 GPUs -- the first source-grounded number for this field; doc 04 itself only had "~8 TB/s, widely reported, not confirmed" -- this independently corroborates that figure via NVIDIA's own NVL72 page, but is still a derived (divided), not directly-published-per-GPU, number
   nvlink_generation: NVLink5
-  nvlink_bandwidth_gbps: null
-  fp32_tflops: 80.0
-  fp64_tflops: 40.0
-  tf32_tflops: 2500.0
-  bf16_tflops: 5000.0
+  nvlink_bandwidth_gbps: 1800.0 # derived: superchip module's "3.6 TB/s" / 2 GPUs -- matches p6-b200/p6-b300's directly-confirmed 1800.0 exactly
+  gpu_model: "NVIDIA GB200 (Grace Blackwell Superchip)"
+  architecture: "Blackwell (rack-scale, Grace Blackwell)"
+  form_factor: "Grace Blackwell Superchip module (2 GPU + 1 Grace CPU), liquid-cooled, within a 72-GPU NVL72 rack"
+  tensor_core_generation: "5th generation" # inferred, see p6-b200
+  # NVIDIA's NVL72 page only publishes superchip-module (2-GPU) or full-rack
+  # (72-GPU) aggregate compute figures, not per-GPU -- these are the
+  # superchip-module figure divided by 2.
+  fp32_tflops: 80.0 # 160 TFLOPS / 2
+  fp64_tflops: 40.0 # 80 TFLOPS / 2
+  tf32_tflops: 2500.0 # 5 PFLOPS / 2
+  bf16_tflops: 5000.0 # 10 PFLOPS / 2
   fp16_tflops: 5000.0
-  fp8_tflops: 10000.0
-  fp4_tflops: 10000.0
-  int8_tops: 10000.0
-
-p6e-gb300: # GB300 NVL72 -- NVL72 page: 20 TB HBM3E / 72 GPUs; per-GPU bandwidth not listed
-  memory_gb_per_gpu: 278.0
-  memory_bandwidth_gbps: null
-  nvlink_generation: NVLink5
-  nvlink_bandwidth_gbps: null
-  fp32_tflops: 83.33
-  fp64_tflops: 1.39
-  tf32_tflops: 2500.0
-  bf16_tflops: 5000.0
-  fp16_tflops: 5000.0
-  fp8_tflops: 10000.0
-  fp4_tflops: 15000.0
-  int8_tops: 333.33
+  fp8_tflops: 10000.0 # 20 PFLOPS / 2
+  fp4_tflops: 10000.0 # 20 PFLOPS dense / 2 (40 PFLOPS sparse / 2 = 20000)
+  int8_tops: 10000.0 # 20 POPS / 2
+  native_precision_support: [BF16, FP8, FP4, INT8, INT4] # doc 04 §5 SM100 row (Blackwell, same as B200/B300)
+  source: "https://www.nvidia.com/en-us/data-center/gb200-nvl72/#specs"
+  aws_ec2_source: "https://aws.amazon.com/ec2/instance-types/p6/" # cross-check for memory_gb_per_gpu only -- no GPU bandwidth data

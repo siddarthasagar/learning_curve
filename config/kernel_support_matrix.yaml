@@ -65,4 +65,21 @@ SM120: # RTX PRO 6000 (g7e)
   int8_w8a8: blocked
   int4_w4a16: native
   nvfp4_dense: fallback
+  # nvfp4/mxfp4_moe: confirmed live 2026-08-22 (WebFetch against the issue
+  # itself, not just cited secondhand) -- vLLM issue #31085 is a real, still-
+  # open dispatch bug: SM120's MXFP4 backend-selection check only recognizes
+  # the SM100 family (`is_device_capability_family(100)`), so SM120 silently
+  # falls through to the Marlin fallback even though native kernels exist.
+  # Doesn't change this cell's value (still "fallback" is the honest default
+  # a user hits) but is the *reason* -- a software dispatch bug, not a
+  # hardware/kernel-implementation gap. See
+  # research_topics/llm_hosting/nvidia-gpu-quantization-kernel-reference-v2.md
+  # §4 for where this was first raised; that document's further claim that
+  # CUTLASS issue #3096 leaves this "broken with no NVIDIA response" did NOT
+  # hold up under the same live check -- #3096 is actually closed, and its
+  # real resolution (a custom compute_120f/CUDA 13.0 build, patched across
+  # 10+ files) ran *slower* than the Marlin fallback in the reporter's own
+  # benchmark (39 tok/s vs 46-49 tok/s) -- so "native" would not obviously
+  # even be the better answer here yet. Re-verify #31085's status before
+  # trusting this comment stays current.
   nvfp4_moe: fallback

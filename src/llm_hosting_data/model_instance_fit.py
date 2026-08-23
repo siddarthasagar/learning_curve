@@ -533,3 +533,105 @@ def build_instance_reports(
         )
         report[instance.instance_type] = fits
     return report
+
+
+@dataclass(frozen=True)
+class CapacityFit:
+    """Pass 1 of the ranking pipeline: does this candidate fit an instance by raw GPU memory alone."""
+
+    repo_id: str
+    total_gib: float
+    fit_tier: str  # "tight" or "best" -- see classify_fit()
+
+
+def build_capacity_pass(
+    *,
+    model_sizes: list[ModelSize],
+    instances: list[CombinedInstancePricing],
+    gpu_hardware_specs: dict[str, dict[str, object]],
+) -> dict[str, list[CapacityFit]]:
+    """Pass 1: every candidate that fits an instance by GPU memory alone.
+
+    2026-08-22, user request: "let's finish the pipeline like this, let's
+    iteratively filter based on instances" — this is deliberately the raw
+    capacity check only (:func:`instance_capacity`/:func:`classify_fit`),
+    with no kernel/quantization-support check yet — that's
+    :func:`build_kernel_filter_pass`, a separate pass over this one's
+    output, not merged into a single elimination like
+    :func:`build_instance_reports` does. Sorted best-tier-first, then by
+    size ascending (smallest/cheapest-to-host survivor first within a tier).
+    """
+    report: dict[str, list[CapacityFit]] = {}
+    for instance in instances:
+        capacity = instance_capacity(
+            instance.instance_type,
+            instance.gpu,
+            gpu_hardware_specs,
+        )
+        if capacity is None:
+            continue
+        fits: list[CapacityFit] = []
+        for size in model_sizes:
+            tier = classify_fit(size.total_gib, capacity)
+            if tier is None:
+                continue
+            fits.append(
+                CapacityFit(
+                    repo_id=size.repo_id,
+                    total_gib=size.total_gib,
+                    fit_tier=tier,
+                ),
+            )
+        fits.sort(key=lambda fit: (fit.fit_tier != "best", fit.total_gib))
+        report[instance.instance_type] = fits
+    return report
+
+
+@dataclass(frozen=True)
+class KernelCompatibleFit:
+    """Pass 2 of the ranking pipeline: a pass-1 survivor with non-blocked kernel/quantization support."""
+
+    repo_id: str
+    total_gib: float
+    fit_tier: str
+    kernel_support: str  # "native", "fallback", or "unknown" -- "blocked" is excluded, never appears here
+
+
+def build_kernel_filter_pass(
+    pass1_report: dict[str, list[CapacityFit]],
+    *,
+    instances: list[CombinedInstancePricing],
+    kernel_matrix: dict[str, dict[str, str]],
+) -> dict[str, list[KernelCompatibleFit]]:
+    """Pass 2: from pass 1's capacity-only list, drop anything kernel-`blocked`.
+
+    2026-08-22, user request — operates strictly on pass 1's own output
+    (not a fresh scan over every model/instance pair), so a caller can
+    inspect exactly what pass 1 found before this pass narrows it further.
+    Pass 3 (rank survivors by benchmark score) is deliberately not built
+    yet — held off pending active-parameter data needed for doc `04`'s
+    "Fastest decode"/"Best overall" categories (tracking doc §6 gap 2),
+    rather than shipping a ranking that only ever answers "Smartest."
+    """
+    capability_by_instance = {
+        instance.instance_type: instance.gpu_compute_capability
+        for instance in instances
+    }
+    report: dict[str, list[KernelCompatibleFit]] = {}
+    for instance_type, fits in pass1_report.items():
+        compute_capability = capability_by_instance.get(instance_type)
+        survivors: list[KernelCompatibleFit] = []
+        for fit in fits:
+            support = kernel_support(fit.repo_id, compute_capability, kernel_matrix)
+            if support == "blocked":
+                continue
+            survivors.append(
+                KernelCompatibleFit(
+                    repo_id=fit.repo_id,
+                    total_gib=fit.total_gib,
+                    fit_tier=fit.fit_tier,
+                    kernel_support=support,
+                ),
+            )
+        report[instance_type] = survivors
+    return report

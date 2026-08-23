@@ -299,3 +299,50 @@ def test_build_instance_reports_sorts_best_fit_first_then_by_accuracy() -> None:
     fits = report["p5.48xlarge"]
     assert [f.repo_id for f in fits] == ["Qwen/Qwen3.5-397B-A17B-GPTQ-Int4"]
     assert fits[0].accuracy == 0.79
+
+
+def test_build_capacity_pass_sorts_best_tier_first_then_by_size() -> None:
+    model_sizes = [
+        _model_size("Qwen/Qwen3.5-397B-A17B-GPTQ-Int4", 219.58),
+        _model_size("moonshotai/Kimi-K3", 1454.0),  # too big, excluded
+        _model_size("org/small-model", 20.0),
+    ]
+    instances = [_instance("p5.48xlarge", "8", 55.04)]
+
+    pass1 = fit.build_capacity_pass(
+        model_sizes=model_sizes,
+        instances=instances,
+        gpu_hardware_specs=_GPU_HARDWARE_SPECS,
+    )
+
+    fits = pass1["p5.48xlarge"]
+    assert [f.repo_id for f in fits] == [
+        "org/small-model",
+        "Qwen/Qwen3.5-397B-A17B-GPTQ-Int4",
+    ]
+    assert all(f.fit_tier == "best" for f in fits)
+
+
+def test_build_kernel_filter_pass_drops_only_blocked_survivors() -> None:
+    pass1 = {
+        "g7e.2xlarge": [
+            fit.CapacityFit(repo_id="org/model-Int8", total_gib=20.0, fit_tier="best"),
+            fit.CapacityFit(repo_id="org/model-bf16", total_gib=20.0, fit_tier="best"),
+        ],
+    }
+    instances = [_instance("g7e.2xlarge", "1", 3.36, compute_capability="SM120")]
+
+    pass2 = fit.build_kernel_filter_pass(
+        pass1,
+        instances=instances,
+        kernel_matrix=_KERNEL_MATRIX,
+    )
+
+    fits = pass2["g7e.2xlarge"]
+    # INT8 is the one cell config/kernel_support_matrix.yaml marks "blocked"
+    # on SM120 -- must be excluded even though it survived pass 1's capacity
+    # check. The unrelated bf16 checkpoint must survive untouched.
+    assert [f.repo_id for f in fits] == ["org/model-bf16"]
+    assert (
+        fits[0].kernel_support == "unknown"
+    )  # SM120/bf16 isn't in this test's trimmed _KERNEL_MATRIX

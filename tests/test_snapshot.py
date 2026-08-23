@@ -44,27 +44,32 @@ def test_save_snapshot_skips_dated_file_when_content_unchanged(tmp_path: Path) -
     data = [_Item(name="a", value=1)]
 
     save_snapshot("widgets", data, tmp_path)
-    after_first = set(tmp_path.glob("widgets-*.json"))
+    latest_after_first = set(tmp_path.glob("widgets-*.json"))
+    dated_after_first = set((tmp_path / "backup").glob("widgets-*.json"))
 
     save_snapshot("widgets", data, tmp_path)
-    after_second = set(tmp_path.glob("widgets-*.json"))
+    latest_after_second = set(tmp_path.glob("widgets-*.json"))
+    dated_after_second = set((tmp_path / "backup").glob("widgets-*.json"))
 
-    # Only "widgets-latest.json" plus the one dated file from the first,
-    # genuinely-new write -- the second, identical write adds nothing.
-    assert len(after_first) == 2
-    assert after_second == after_first
+    # "widgets-latest.json" lives directly under tmp_path; the one dated
+    # file from the first, genuinely-new write lives under tmp_path/backup/
+    # -- the second, identical write adds nothing to either.
+    assert len(latest_after_first) == 1
+    assert len(dated_after_first) == 1
+    assert latest_after_second == latest_after_first
+    assert dated_after_second == dated_after_first
 
 
 def test_save_snapshot_prunes_dated_files_beyond_keep(tmp_path: Path) -> None:
+    backup_dir = tmp_path / "backup"
+    backup_dir.mkdir()
     for fake_timestamp in ("20200101T000000Z", "20200102T000000Z", "20200103T000000Z"):
-        (tmp_path / f"widgets-{fake_timestamp}.json").write_text("[]")
+        (backup_dir / f"widgets-{fake_timestamp}.json").write_text("[]")
     (tmp_path / "widgets-latest.json").write_text("[]")
 
     save_snapshot("widgets", [_Item(name="a", value=1)], tmp_path, keep=2)
 
-    dated = sorted(
-        p.name for p in tmp_path.glob("widgets-*.json") if "latest" not in p.name
-    )
+    dated = sorted(p.name for p in backup_dir.glob("widgets-*.json"))
     assert len(dated) == 2
     assert "widgets-20200101T000000Z.json" not in dated
     assert "widgets-20200102T000000Z.json" not in dated
