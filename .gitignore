@@ -36,4 +36,5 @@ Thumbs.db
 # llm_hosting_data output: timestamped snapshots (dump/) and raw source-data
 # caches -- AWS offer files, the Vantage catalog (dump/cache/) -- all regenerable
 dump/
-graphify-out/cache
+graphify-out
+.extreview
